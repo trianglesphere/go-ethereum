@@ -1851,8 +1851,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		statedb.StartPrefetcher("chain")
 		activeState = statedb
 
-		span, _ := opentracing.StartSpanFromContext(ctx, "insert-block")
-		span.SetTag("blockNumber", block.NumberU64)
+		span, ctx := opentracing.StartSpanFromContext(ctx, "insert-block")
+		span.SetTag("blockNumber", fmt.Sprintf("%v", block.NumberU64()))
 
 		// If we have a followup block, run that against the current state to pre-cache
 		// transactions and probabilistically some of the account/storage trie nodes.
@@ -1873,7 +1873,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		}
 		// Process block using the parent state as reference point
 		substart := time.Now()
-		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
+		receipts, logs, usedGas, err := bc.processor.Process(ctx, block, statedb, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			atomic.StoreUint32(&followupInterrupt, 1)
