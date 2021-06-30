@@ -17,6 +17,7 @@
 package tests
 
 import (
+	goContext "context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -209,7 +210,7 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapsh
 	snapshot := statedb.Snapshot()
 	gaspool := new(core.GasPool)
 	gaspool.AddGas(block.GasLimit())
-	if _, err := core.ApplyMessage(evm, msg, gaspool); err != nil {
+	if _, err := core.ApplyMessage(goContext.TODO(), evm, msg, gaspool); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 	}
 
@@ -220,7 +221,7 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapsh
 	// - the coinbase suicided, or
 	// - there are only 'bad' transactions, which aren't executed. In those cases,
 	//   the coinbase gets no txfee, so isn't created, and thus needs to be touched
-	statedb.AddBalance(block.Coinbase(), new(big.Int))
+	statedb.AddBalance(goContext.TODO(), block.Coinbase(), new(big.Int))
 	// And _now_ get the state root
 	root := statedb.IntermediateRoot(config.IsEIP158(block.Number()))
 	return snaps, statedb, root, nil
@@ -234,11 +235,11 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter boo
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(common.Hash{}, sdb, nil)
 	for addr, a := range accounts {
-		statedb.SetCode(addr, a.Code)
-		statedb.SetNonce(addr, a.Nonce)
-		statedb.SetBalance(addr, a.Balance)
+		statedb.SetCode(goContext.TODO(), addr, a.Code)
+		statedb.SetNonce(goContext.TODO(), addr, a.Nonce)
+		statedb.SetBalance(goContext.TODO(), addr, a.Balance)
 		for k, v := range a.Storage {
-			statedb.SetState(addr, k, v)
+			statedb.SetState(goContext.TODO(), addr, k, v)
 		}
 	}
 	// Commit and re-open to start with a clean state.

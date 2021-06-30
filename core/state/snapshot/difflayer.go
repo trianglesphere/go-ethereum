@@ -17,6 +17,7 @@
 package snapshot
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -269,8 +270,8 @@ func (dl *diffLayer) Stale() bool {
 
 // Account directly retrieves the account associated with a particular hash in
 // the snapshot slim data format.
-func (dl *diffLayer) Account(hash common.Hash) (*Account, error) {
-	data, err := dl.AccountRLP(hash)
+func (dl *diffLayer) Account(ctx context.Context, hash common.Hash) (*Account, error) {
+	data, err := dl.AccountRLP(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +289,7 @@ func (dl *diffLayer) Account(hash common.Hash) (*Account, error) {
 // hash in the snapshot slim data format.
 //
 // Note the returned account is not a copy, please don't modify it.
-func (dl *diffLayer) AccountRLP(hash common.Hash) ([]byte, error) {
+func (dl *diffLayer) AccountRLP(ctx context.Context, hash common.Hash) ([]byte, error) {
 	// Check the bloom filter first whether there's even a point in reaching into
 	// all the maps in all the layers below
 	dl.lock.RLock()
@@ -306,16 +307,16 @@ func (dl *diffLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 	// diff layers, reach straight into the bottom persistent disk layer
 	if origin != nil {
 		snapshotBloomAccountMissMeter.Mark(1)
-		return origin.AccountRLP(hash)
+		return origin.AccountRLP(ctx, hash)
 	}
 	// The bloom filter hit, start poking in the internal maps
-	return dl.accountRLP(hash, 0)
+	return dl.accountRLP(ctx, hash, 0)
 }
 
 // accountRLP is an internal version of AccountRLP that skips the bloom filter
 // checks and uses the internal maps to try and retrieve the data. It's meant
 // to be used if a higher layer's bloom filter hit already.
-func (dl *diffLayer) accountRLP(hash common.Hash, depth int) ([]byte, error) {
+func (dl *diffLayer) accountRLP(ctx context.Context, hash common.Hash, depth int) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -342,11 +343,11 @@ func (dl *diffLayer) accountRLP(hash common.Hash, depth int) ([]byte, error) {
 	}
 	// Account unknown to this diff, resolve from parent
 	if diff, ok := dl.parent.(*diffLayer); ok {
-		return diff.accountRLP(hash, depth+1)
+		return diff.accountRLP(ctx, hash, depth+1)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk
 	snapshotBloomAccountFalseHitMeter.Mark(1)
-	return dl.parent.AccountRLP(hash)
+	return dl.parent.AccountRLP(ctx, hash)
 }
 
 // Storage directly retrieves the storage data associated with a particular hash,
@@ -354,7 +355,7 @@ func (dl *diffLayer) accountRLP(hash common.Hash, depth int) ([]byte, error) {
 // is consulted.
 //
 // Note the returned slot is not a copy, please don't modify it.
-func (dl *diffLayer) Storage(accountHash, storageHash common.Hash) ([]byte, error) {
+func (dl *diffLayer) Storage(ctx context.Context, accountHash, storageHash common.Hash) ([]byte, error) {
 	// Check the bloom filter first whether there's even a point in reaching into
 	// all the maps in all the layers below
 	dl.lock.RLock()
@@ -372,16 +373,16 @@ func (dl *diffLayer) Storage(accountHash, storageHash common.Hash) ([]byte, erro
 	// diff layers, reach straight into the bottom persistent disk layer
 	if origin != nil {
 		snapshotBloomStorageMissMeter.Mark(1)
-		return origin.Storage(accountHash, storageHash)
+		return origin.Storage(ctx, accountHash, storageHash)
 	}
 	// The bloom filter hit, start poking in the internal maps
-	return dl.storage(accountHash, storageHash, 0)
+	return dl.storage(ctx, accountHash, storageHash, 0)
 }
 
 // storage is an internal version of Storage that skips the bloom filter checks
 // and uses the internal maps to try and retrieve the data. It's meant  to be
 // used if a higher layer's bloom filter hit already.
-func (dl *diffLayer) storage(accountHash, storageHash common.Hash, depth int) ([]byte, error) {
+func (dl *diffLayer) storage(ctx context.Context, accountHash, storageHash common.Hash, depth int) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -414,11 +415,11 @@ func (dl *diffLayer) storage(accountHash, storageHash common.Hash, depth int) ([
 	}
 	// Storage slot unknown to this diff, resolve from parent
 	if diff, ok := dl.parent.(*diffLayer); ok {
-		return diff.storage(accountHash, storageHash, depth+1)
+		return diff.storage(ctx, accountHash, storageHash, depth+1)
 	}
 	// Failed to resolve through diff layers, mark a bloom error and use the disk
 	snapshotBloomStorageFalseHitMeter.Mark(1)
-	return dl.parent.Storage(accountHash, storageHash)
+	return dl.parent.Storage(ctx, accountHash, storageHash)
 }
 
 // Update creates a new layer on top of the existing snapshot diff tree with

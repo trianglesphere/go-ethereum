@@ -187,7 +187,7 @@ func (st *StateTransition) to() common.Address {
 	return *st.msg.To()
 }
 
-func (st *StateTransition) buyGas() error {
+func (st *StateTransition) buyGas(ctx context.Context) error {
 	mgval := new(big.Int).SetUint64(st.msg.Gas())
 	mgval = mgval.Mul(mgval, st.gasPrice)
 	balanceCheck := mgval
@@ -195,7 +195,7 @@ func (st *StateTransition) buyGas() error {
 		balanceCheck = new(big.Int).SetUint64(st.msg.Gas())
 		balanceCheck = balanceCheck.Mul(balanceCheck, st.gasFeeCap)
 	}
-	if have, want := st.state.GetBalance(st.msg.From()), balanceCheck; have.Cmp(want) < 0 {
+	if have, want := st.state.GetBalance(ctx, st.msg.From()), balanceCheck; have.Cmp(want) < 0 {
 		return fmt.Errorf("%w: address %v have %v want %v", ErrInsufficientFunds, st.msg.From().Hex(), have, want)
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
@@ -204,14 +204,14 @@ func (st *StateTransition) buyGas() error {
 	st.gas += st.msg.Gas()
 
 	st.initialGas = st.msg.Gas()
-	st.state.SubBalance(st.msg.From(), mgval)
+	st.state.SubBalance(ctx, st.msg.From(), mgval)
 	return nil
 }
 
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition) preCheck(ctx context.Context) error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
-		stNonce := st.state.GetNonce(st.msg.From())
+		stNonce := st.state.GetNonce(ctx, st.msg.From())
 		if msgNonce := st.msg.Nonce(); stNonce < msgNonce {
 			return fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooHigh,
 				st.msg.From().Hex(), msgNonce, stNonce)
@@ -244,7 +244,7 @@ func (st *StateTransition) preCheck() error {
 			}
 		}
 	}
-	return st.buyGas()
+	return st.buyGas(ctx)
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -272,7 +272,7 @@ func (st *StateTransition) TransitionDb(ctx context.Context) (*ExecutionResult, 
 	// 6. caller has enough balance to cover asset transfer for **topmost** call
 
 	// Check clauses 1-3, buy gas if everything is correct
-	if err := st.preCheck(); err != nil {
+	if err := st.preCheck(ctx); err != nil {
 		return nil, err
 	}
 	msg := st.msg
@@ -292,7 +292,7 @@ func (st *StateTransition) TransitionDb(ctx context.Context) (*ExecutionResult, 
 	st.gas -= gas
 
 	// Check clause 6
-	if msg.Value().Sign() > 0 && !st.evm.Context.CanTransfer(st.state, msg.From(), msg.Value()) {
+	if msg.Value().Sign() > 0 && !st.evm.Context.CanTransfer(ctx, st.state, msg.From(), msg.Value()) {
 		return nil, fmt.Errorf("%w: address %v", ErrInsufficientFundsForTransfer, msg.From().Hex())
 	}
 
@@ -308,21 +308,21 @@ func (st *StateTransition) TransitionDb(ctx context.Context) (*ExecutionResult, 
 		ret, _, st.gas, vmerr = st.evm.Create(ctx, sender, st.data, st.gas, st.value)
 	} else {
 		// Increment the nonce for the next transaction
-		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		st.state.SetNonce(ctx, msg.From(), st.state.GetNonce(ctx, sender.Address())+1)
 		ret, st.gas, vmerr = st.evm.Call(ctx, sender, st.to(), st.data, st.gas, st.value)
 	}
 	if !st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
 		// Before EIP-3529: refunds were capped to gasUsed / 2
-		st.refundGas(params.RefundQuotient)
+		st.refundGas(ctx, params.RefundQuotient)
 	} else {
 		// After EIP-3529: refunds are capped to gasUsed / 5
-		st.refundGas(params.RefundQuotientEIP3529)
+		st.refundGas(ctx, params.RefundQuotientEIP3529)
 	}
 	effectiveTip := st.gasPrice
 	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
 		effectiveTip = cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 	}
-	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
+	st.state.AddBalance(ctx, st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),
@@ -331,7 +331,7 @@ func (st *StateTransition) TransitionDb(ctx context.Context) (*ExecutionResult, 
 	}, nil
 }
 
-func (st *StateTransition) refundGas(refundQuotient uint64) {
+func (st *StateTransition) refundGas(ctx context.Context, refundQuotient uint64) {
 	// Apply refund counter, capped to a refund quotient
 	refund := st.gasUsed() / refundQuotient
 	if refund > st.state.GetRefund() {
@@ -341,7 +341,7 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 
 	// Return ETH for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	st.state.AddBalance(st.msg.From(), remaining)
+	st.state.AddBalance(ctx, st.msg.From(), remaining)
 
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.

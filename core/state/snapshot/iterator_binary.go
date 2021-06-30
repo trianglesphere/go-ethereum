@@ -18,6 +18,7 @@ package snapshot
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -167,7 +168,7 @@ func (it *binaryIterator) Account() []byte {
 		return nil
 	}
 	// The topmost iterator must be `diffAccountIterator`
-	blob, err := it.a.(*diffAccountIterator).layer.AccountRLP(it.k)
+	blob, err := it.a.(*diffAccountIterator).layer.AccountRLP(context.TODO(), it.k)
 	if err != nil {
 		it.fail = err
 		return nil
@@ -184,7 +185,7 @@ func (it *binaryIterator) Slot() []byte {
 	if it.accountIterator {
 		return nil
 	}
-	blob, err := it.a.(*diffStorageIterator).layer.Storage(it.account, it.k)
+	blob, err := it.a.(*diffStorageIterator).layer.Storage(context.TODO(), it.account, it.k)
 	if err != nil {
 		it.fail = err
 		return nil

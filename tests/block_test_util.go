@@ -19,6 +19,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -279,9 +280,9 @@ func (t *BlockTest) validatePostState(statedb *state.StateDB) error {
 	// validate post state accounts in test file against what we have in state db
 	for addr, acct := range t.json.Post {
 		// address is indirectly verified by the other fields, as it's the db key
-		code2 := statedb.GetCode(addr)
-		balance2 := statedb.GetBalance(addr)
-		nonce2 := statedb.GetNonce(addr)
+		code2 := statedb.GetCode(context.TODO(), addr)
+		balance2 := statedb.GetBalance(context.TODO(), addr)
+		nonce2 := statedb.GetNonce(context.TODO(), addr)
 		if !bytes.Equal(code2, acct.Code) {
 			return fmt.Errorf("account code mismatch for addr: %s want: %v have: %s", addr, acct.Code, hex.EncodeToString(code2))
 		}

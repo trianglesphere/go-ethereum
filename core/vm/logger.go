@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -176,7 +177,7 @@ func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost ui
 		if op == SLOAD && stack.len() >= 1 {
 			var (
 				address = common.Hash(stack.data[stack.len()-1].Bytes32())
-				value   = env.StateDB.GetState(contract.Address(), address)
+				value   = env.StateDB.GetState(context.TODO(), contract.Address(), address)
 			)
 			l.storage[contract.Address()][address] = value
 		}

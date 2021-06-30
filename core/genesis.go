@@ -18,6 +18,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -266,11 +267,11 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		panic(err)
 	}
 	for addr, account := range g.Alloc {
-		statedb.AddBalance(addr, account.Balance)
-		statedb.SetCode(addr, account.Code)
-		statedb.SetNonce(addr, account.Nonce)
+		statedb.AddBalance(context.TODO(), addr, account.Balance)
+		statedb.SetCode(context.TODO(), addr, account.Code)
+		statedb.SetNonce(context.TODO(), addr, account.Nonce)
 		for key, value := range account.Storage {
-			statedb.SetState(addr, key, value)
+			statedb.SetState(context.TODO(), addr, key, value)
 		}
 	}
 	root := statedb.IntermediateRoot(false)

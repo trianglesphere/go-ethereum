@@ -181,7 +181,7 @@ func (b *SimulatedBackend) CodeAt(ctx context.Context, contract common.Address, 
 		return nil, err
 	}
 
-	return stateDB.GetCode(contract), nil
+	return stateDB.GetCode(context.TODO(), contract), nil
 }
 
 // BalanceAt returns the wei balance of a certain account in the blockchain.
@@ -194,7 +194,7 @@ func (b *SimulatedBackend) BalanceAt(ctx context.Context, contract common.Addres
 		return nil, err
 	}
 
-	return stateDB.GetBalance(contract), nil
+	return stateDB.GetBalance(context.TODO(), contract), nil
 }
 
 // NonceAt returns the nonce of a certain account in the blockchain.
@@ -207,7 +207,7 @@ func (b *SimulatedBackend) NonceAt(ctx context.Context, contract common.Address,
 		return 0, err
 	}
 
-	return stateDB.GetNonce(contract), nil
+	return stateDB.GetNonce(context.TODO(), contract), nil
 }
 
 // StorageAt returns the value of key in the storage of an account in the blockchain.
@@ -220,7 +220,7 @@ func (b *SimulatedBackend) StorageAt(ctx context.Context, contract common.Addres
 		return nil, err
 	}
 
-	val := stateDB.GetState(contract, key)
+	val := stateDB.GetState(context.TODO(), contract, key)
 	return val[:], nil
 }
 
@@ -377,7 +377,7 @@ func (b *SimulatedBackend) PendingCodeAt(ctx context.Context, contract common.Ad
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	return b.pendingState.GetCode(contract), nil
+	return b.pendingState.GetCode(context.TODO(), contract), nil
 }
 
 func newRevertError(result *core.ExecutionResult) *revertError {
@@ -456,7 +456,7 @@ func (b *SimulatedBackend) PendingNonceAt(ctx context.Context, account common.Ad
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	return b.pendingState.GetOrNewStateObject(account).Nonce(), nil
+	return b.pendingState.GetOrNewStateObject(context.TODO(), account).Nonce(), nil
 }
 
 // SuggestGasPrice implements ContractTransactor.SuggestGasPrice. Since the simulated
@@ -490,7 +490,7 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call ethereum.CallMs
 	}
 	// Recap the highest gas allowance with account's balance.
 	if call.GasPrice != nil && call.GasPrice.BitLen() != 0 {
-		balance := b.pendingState.GetBalance(call.From) // from can't be nil
+		balance := b.pendingState.GetBalance(context.TODO(), call.From) // from can't be nil
 		available := new(big.Int).Set(balance)
 		if call.Value != nil {
 			if call.Value.Cmp(available) >= 0 {
@@ -606,7 +606,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call ethereum.CallM
 		call.Value = new(big.Int)
 	}
 	// Set infinite balance to the fake caller account.
-	from := stateDB.GetOrNewStateObject(call.From)
+	from := stateDB.GetOrNewStateObject(context.TODO(), call.From)
 	from.SetBalance(math.MaxBig256)
 	// Execute the call.
 	msg := callMsg{call}
@@ -638,7 +638,7 @@ func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transa
 	if err != nil {
 		panic(fmt.Errorf("invalid transaction: %v", err))
 	}
-	nonce := b.pendingState.GetNonce(sender)
+	nonce := b.pendingState.GetNonce(context.TODO(), sender)
 	if tx.Nonce() != nonce {
 		panic(fmt.Errorf("invalid transaction nonce: got %d, want %d", tx.Nonce(), nonce))
 	}

@@ -17,6 +17,7 @@
 package t8ntool
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -158,7 +159,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		evm := vm.NewEVM(vmContext, txContext, statedb, chainConfig, vmConfig)
 
 		// (ret []byte, usedGas uint64, failed bool, err error)
-		msgResult, err := core.ApplyMessage(evm, msg, gaspool)
+		msgResult, err := core.ApplyMessage(context.TODO(), evm, msg, gaspool)
 		if err != nil {
 			statedb.RevertToSnapshot(snapshot)
 			log.Info("rejected tx", "index", i, "hash", tx.Hash(), "from", msg.From(), "error", err)
@@ -229,9 +230,9 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 			reward.Sub(reward, big.NewInt(0).SetUint64(ommer.Delta))
 			reward.Mul(reward, blockReward)
 			reward.Div(reward, big.NewInt(8))
-			statedb.AddBalance(ommer.Address, reward)
+			statedb.AddBalance(context.TODO(), ommer.Address, reward)
 		}
-		statedb.AddBalance(pre.Env.Coinbase, minerReward)
+		statedb.AddBalance(context.TODO(), pre.Env.Coinbase, minerReward)
 	}
 	// Commit block
 	root, err := statedb.Commit(chainConfig.IsEIP158(vmContext.BlockNumber))
@@ -255,11 +256,11 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(common.Hash{}, sdb, nil)
 	for addr, a := range accounts {
-		statedb.SetCode(addr, a.Code)
-		statedb.SetNonce(addr, a.Nonce)
-		statedb.SetBalance(addr, a.Balance)
+		statedb.SetCode(context.TODO(), addr, a.Code)
+		statedb.SetNonce(context.TODO(), addr, a.Nonce)
+		statedb.SetBalance(context.TODO(), addr, a.Balance)
 		for k, v := range a.Storage {
-			statedb.SetState(addr, k, v)
+			statedb.SetState(context.TODO(), addr, k, v)
 		}
 	}
 	// Commit and re-open to start with a clean state.

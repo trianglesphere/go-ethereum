@@ -427,7 +427,7 @@ func (api *PrivateDebugAPI) StorageRangeAt(blockHash common.Hash, txIndex int, c
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
-	st := statedb.StorageTrie(contractAddress)
+	st := statedb.StorageTrie(context.TODO(), contractAddress)
 	if st == nil {
 		return StorageRangeResult{}, fmt.Errorf("account %x doesn't exist", contractAddress)
 	}

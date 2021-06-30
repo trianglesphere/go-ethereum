@@ -18,6 +18,7 @@ package snap
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 
@@ -467,7 +468,7 @@ func handleMessage(backend Backend, peer *Peer) error {
 
 			default:
 				// Storage slots requested, open the storage trie and retrieve from there
-				account, err := snap.Account(common.BytesToHash(pathset[0]))
+				account, err := snap.Account(context.TODO(), common.BytesToHash(pathset[0]))
 				loads++ // always account database reads, even for failures
 				if err != nil {
 					break

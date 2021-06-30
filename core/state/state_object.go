@@ -18,6 +18,7 @@ package state
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"math/big"
@@ -177,7 +178,7 @@ func (s *stateObject) getTrie(db Database) Trie {
 }
 
 // GetState retrieves a value from the account storage trie.
-func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
+func (s *stateObject) GetState(ctx context.Context, db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
@@ -188,11 +189,11 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		return value
 	}
 	// Otherwise return the entry's original value
-	return s.GetCommittedState(db, key)
+	return s.GetCommittedState(ctx, db, key)
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.
-func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
+func (s *stateObject) GetCommittedState(ctx context.Context, db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
@@ -234,7 +235,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		if _, destructed := s.db.snapDestructs[s.addrHash]; destructed {
 			return common.Hash{}
 		}
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
+		enc, err = s.db.snap.Storage(ctx, s.addrHash, crypto.Keccak256Hash(key.Bytes()))
 	}
 	// If snapshot unavailable or reading from it failed, load from the database
 	if s.db.snap == nil || err != nil {
@@ -265,14 +266,14 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 }
 
 // SetState updates a value in account storage.
-func (s *stateObject) SetState(db Database, key, value common.Hash) {
+func (s *stateObject) SetState(ctx context.Context, db Database, key, value common.Hash) {
 	// If the fake storage is set, put the temporary state update here.
 	if s.fakeStorage != nil {
 		s.fakeStorage[key] = value
 		return
 	}
 	// If the new value is the same as old, don't set
-	prev := s.GetState(db, key)
+	prev := s.GetState(ctx, db, key)
 	if prev == value {
 		return
 	}

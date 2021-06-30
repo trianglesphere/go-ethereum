@@ -17,6 +17,7 @@
 package core
 
 import (
+	"context"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -49,7 +50,7 @@ func (txn *txNoncer) get(addr common.Address) uint64 {
 	defer txn.lock.Unlock()
 
 	if _, ok := txn.nonces[addr]; !ok {
-		txn.nonces[addr] = txn.fallback.GetNonce(addr)
+		txn.nonces[addr] = txn.fallback.GetNonce(context.TODO(), addr)
 	}
 	return txn.nonces[addr]
 }
@@ -70,7 +71,7 @@ func (txn *txNoncer) setIfLower(addr common.Address, nonce uint64) {
 	defer txn.lock.Unlock()
 
 	if _, ok := txn.nonces[addr]; !ok {
-		txn.nonces[addr] = txn.fallback.GetNonce(addr)
+		txn.nonces[addr] = txn.fallback.GetNonce(context.TODO(), addr)
 	}
 	if txn.nonces[addr] <= nonce {
 		return

@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -146,7 +147,7 @@ func runCmd(ctx *cli.Context) error {
 	if ctx.GlobalString(SenderFlag.Name) != "" {
 		sender = common.HexToAddress(ctx.GlobalString(SenderFlag.Name))
 	}
-	statedb.CreateAccount(sender)
+	statedb.CreateAccount(context.TODO(), sender)
 
 	if ctx.GlobalString(ReceiverFlag.Name) != "" {
 		receiver = common.HexToAddress(ctx.GlobalString(ReceiverFlag.Name))
@@ -257,7 +258,7 @@ func runCmd(ctx *cli.Context) error {
 		}
 	} else {
 		if len(code) > 0 {
-			statedb.SetCode(receiver, code)
+			statedb.SetCode(context.TODO(), receiver, code)
 		}
 		execFunc = func() ([]byte, uint64, error) {
 			return runtime.Call(receiver, input, &runtimeConfig)

@@ -134,7 +134,7 @@ func TestNewSimulatedBackend(t *testing.T) {
 	}
 
 	stateDB, _ := sim.blockchain.State()
-	bal := stateDB.GetBalance(testAddr)
+	bal := stateDB.GetBalance(context.TODO(), testAddr)
 	if bal.Cmp(expectedBal) != 0 {
 		t.Errorf("expected balance for test address not received. expected: %v actual: %v", expectedBal, bal)
 	}

@@ -35,9 +35,9 @@ var emptyCodeHash = crypto.Keccak256Hash(nil)
 
 type (
 	// CanTransferFunc is the signature of a transfer guard function
-	CanTransferFunc func(StateDB, common.Address, *big.Int) bool
+	CanTransferFunc func(context.Context, StateDB, common.Address, *big.Int) bool
 	// TransferFunc is the signature of a transfer function
-	TransferFunc func(StateDB, common.Address, common.Address, *big.Int)
+	TransferFunc func(context.Context, StateDB, common.Address, common.Address, *big.Int)
 	// GetHashFunc returns the n'th block hash in the blockchain
 	// and is used by the BLOCKHASH EVM op code.
 	GetHashFunc func(uint64) common.Hash
@@ -216,13 +216,13 @@ func (evm *EVM) Call(ctx context.Context, caller ContractRef, addr common.Addres
 		return nil, gas, ErrDepth
 	}
 	// Fail if we're trying to transfer more than the available balance
-	if value.Sign() != 0 && !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
+	if value.Sign() != 0 && !evm.Context.CanTransfer(ctx, evm.StateDB, caller.Address(), value) {
 		return nil, gas, ErrInsufficientBalance
 	}
 	snapshot := evm.StateDB.Snapshot()
 	p, isPrecompile := evm.precompile(addr)
 
-	if !evm.StateDB.Exist(addr) {
+	if !evm.StateDB.Exist(ctx, addr) {
 		if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
 			if evm.Config.Debug && evm.depth == 0 {
@@ -231,9 +231,9 @@ func (evm *EVM) Call(ctx context.Context, caller ContractRef, addr common.Addres
 			}
 			return nil, gas, nil
 		}
-		evm.StateDB.CreateAccount(addr)
+		evm.StateDB.CreateAccount(ctx, addr)
 	}
-	evm.Context.Transfer(evm.StateDB, caller.Address(), addr, value)
+	evm.Context.Transfer(ctx, evm.StateDB, caller.Address(), addr, value)
 
 	// Capture the tracer start/end events in debug mode
 	if evm.Config.Debug && evm.depth == 0 {
@@ -248,7 +248,7 @@ func (evm *EVM) Call(ctx context.Context, caller ContractRef, addr common.Addres
 	} else {
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
-		code := evm.StateDB.GetCode(addr)
+		code := evm.StateDB.GetCode(ctx, addr)
 		if len(code) == 0 {
 			ret, err = nil, nil // gas is unchanged
 		} else {
@@ -256,7 +256,7 @@ func (evm *EVM) Call(ctx context.Context, caller ContractRef, addr common.Addres
 			// If the account has no code, we can abort here
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
-			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
+			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(ctx, addrCopy), code)
 			ret, err = run(ctx, evm, contract, input, false)
 			gas = contract.Gas
 		}
@@ -295,7 +295,7 @@ func (evm *EVM) CallCode(ctx context.Context, caller ContractRef, addr common.Ad
 	// Note although it's noop to transfer X ether to caller itself. But
 	// if caller doesn't have enough balance, it would be an error to allow
 	// over-charging itself. So the check here is necessary.
-	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
+	if !evm.Context.CanTransfer(ctx, evm.StateDB, caller.Address(), value) {
 		return nil, gas, ErrInsufficientBalance
 	}
 	var snapshot = evm.StateDB.Snapshot()
@@ -308,7 +308,7 @@ func (evm *EVM) CallCode(ctx context.Context, caller ContractRef, addr common.Ad
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		contract := NewContract(caller, AccountRef(caller.Address()), value, gas)
-		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(ctx, addrCopy), evm.StateDB.GetCode(ctx, addrCopy))
 		ret, err = run(ctx, evm, contract, input, false)
 		gas = contract.Gas
 	}
@@ -343,7 +343,7 @@ func (evm *EVM) DelegateCall(ctx context.Context, caller ContractRef, addr commo
 		addrCopy := addr
 		// Initialise a new contract and make initialise the delegate values
 		contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
-		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(ctx, addrCopy), evm.StateDB.GetCode(ctx, addrCopy))
 		ret, err = run(ctx, evm, contract, input, false)
 		gas = contract.Gas
 	}
@@ -379,7 +379,7 @@ func (evm *EVM) StaticCall(ctx context.Context, caller ContractRef, addr common.
 	// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
 	// but is the correct thing to do and matters on other networks, in tests, and potential
 	// future scenarios
-	evm.StateDB.AddBalance(addr, big0)
+	evm.StateDB.AddBalance(ctx, addr, big0)
 
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
@@ -391,7 +391,7 @@ func (evm *EVM) StaticCall(ctx context.Context, caller ContractRef, addr common.
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		contract := NewContract(caller, AccountRef(addrCopy), new(big.Int), gas)
-		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(ctx, addrCopy), evm.StateDB.GetCode(ctx, addrCopy))
 		// When an error was returned by the EVM or when setting the creation code
 		// above we revert to the snapshot and consume any gas remaining. Additionally
 		// when we're in Homestead this also counts for code storage gas errors.
@@ -426,28 +426,28 @@ func (evm *EVM) create(ctx context.Context, caller ContractRef, codeAndHash *cod
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, common.Address{}, gas, ErrDepth
 	}
-	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
+	if !evm.Context.CanTransfer(ctx, evm.StateDB, caller.Address(), value) {
 		return nil, common.Address{}, gas, ErrInsufficientBalance
 	}
-	nonce := evm.StateDB.GetNonce(caller.Address())
-	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	nonce := evm.StateDB.GetNonce(ctx, caller.Address())
+	evm.StateDB.SetNonce(ctx, caller.Address(), nonce+1)
 	// We add this to the access list _before_ taking a snapshot. Even if the creation fails,
 	// the access-list change should not be rolled back
 	if evm.chainRules.IsBerlin {
 		evm.StateDB.AddAddressToAccessList(address)
 	}
 	// Ensure there's no existing contract already at the designated address
-	contractHash := evm.StateDB.GetCodeHash(address)
-	if evm.StateDB.GetNonce(address) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
+	contractHash := evm.StateDB.GetCodeHash(ctx, address)
+	if evm.StateDB.GetNonce(ctx, address) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
 		return nil, common.Address{}, 0, ErrContractAddressCollision
 	}
 	// Create a new account on the state
 	snapshot := evm.StateDB.Snapshot()
-	evm.StateDB.CreateAccount(address)
+	evm.StateDB.CreateAccount(ctx, address)
 	if evm.chainRules.IsEIP158 {
-		evm.StateDB.SetNonce(address, 1)
+		evm.StateDB.SetNonce(ctx, address, 1)
 	}
-	evm.Context.Transfer(evm.StateDB, caller.Address(), address, value)
+	evm.Context.Transfer(ctx, evm.StateDB, caller.Address(), address, value)
 
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
@@ -482,7 +482,7 @@ func (evm *EVM) create(ctx context.Context, caller ContractRef, codeAndHash *cod
 	if err == nil {
 		createDataGas := uint64(len(ret)) * params.CreateDataGas
 		if contract.UseGas(createDataGas) {
-			evm.StateDB.SetCode(address, ret)
+			evm.StateDB.SetCode(ctx, address, ret)
 		} else {
 			err = ErrCodeStoreOutOfGas
 		}
@@ -506,7 +506,7 @@ func (evm *EVM) create(ctx context.Context, caller ContractRef, codeAndHash *cod
 
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(ctx context.Context, caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
-	contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(caller.Address()))
+	contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(ctx, caller.Address()))
 	return evm.create(ctx, caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 

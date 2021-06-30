@@ -17,6 +17,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"math"
 	"math/big"
@@ -594,12 +595,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrUnderpriced
 	}
 	// Ensure the transaction adheres to nonce ordering
-	if pool.currentState.GetNonce(from) > tx.Nonce() {
+	if pool.currentState.GetNonce(context.TODO(), from) > tx.Nonce() {
 		return ErrNonceTooLow
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
+	if pool.currentState.GetBalance(context.TODO(), from).Cmp(tx.Cost()) < 0 {
 		return ErrInsufficientFunds
 	}
 	// Ensure the transaction has more gas than the basic tx fee.
@@ -1270,14 +1271,14 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 			continue // Just in case someone calls with a non existing account
 		}
 		// Drop all transactions that are deemed too old (low nonce)
-		forwards := list.Forward(pool.currentState.GetNonce(addr))
+		forwards := list.Forward(pool.currentState.GetNonce(context.TODO(), addr))
 		for _, tx := range forwards {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, _ := list.Filter(pool.currentState.GetBalance(context.TODO(), addr), pool.currentMaxGas)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
@@ -1464,7 +1465,7 @@ func (pool *TxPool) truncateQueue() {
 func (pool *TxPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
-		nonce := pool.currentState.GetNonce(addr)
+		nonce := pool.currentState.GetNonce(context.TODO(), addr)
 
 		// Drop all transactions that are deemed too old (low nonce)
 		olds := list.Forward(nonce)
@@ -1474,7 +1475,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			log.Trace("Removed old pending transaction", "hash", hash)
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(context.TODO(), addr), pool.currentMaxGas)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)

@@ -18,6 +18,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -108,7 +109,7 @@ func (t *VMTest) Run(vmconfig vm.Config, snapshotter bool) error {
 	}
 	for addr, account := range t.json.Post {
 		for k, wantV := range account.Storage {
-			if haveV := statedb.GetState(addr, k); haveV != wantV {
+			if haveV := statedb.GetState(context.TODO(), addr, k); haveV != wantV {
 				return fmt.Errorf("wrong storage value at %x:\n  got  %x\n  want %x", k, haveV, wantV)
 			}
 		}
@@ -125,19 +126,19 @@ func (t *VMTest) Run(vmconfig vm.Config, snapshotter bool) error {
 func (t *VMTest) exec(statedb *state.StateDB, vmconfig vm.Config) ([]byte, uint64, error) {
 	evm := t.newEVM(statedb, vmconfig)
 	e := t.json.Exec
-	return evm.Call(vm.AccountRef(e.Caller), e.Address, e.Data, e.GasLimit, e.Value)
+	return evm.Call(context.TODO(), vm.AccountRef(e.Caller), e.Address, e.Data, e.GasLimit, e.Value)
 }
 
 func (t *VMTest) newEVM(statedb *state.StateDB, vmconfig vm.Config) *vm.EVM {
 	initialCall := true
-	canTransfer := func(db vm.StateDB, address common.Address, amount *big.Int) bool {
+	canTransfer := func(ctx context.Context, db vm.StateDB, address common.Address, amount *big.Int) bool {
 		if initialCall {
 			initialCall = false
 			return true
 		}
-		return core.CanTransfer(db, address, amount)
+		return core.CanTransfer(ctx, db, address, amount)
 	}
-	transfer := func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {}
+	transfer := func(ctx context.Context, db vm.StateDB, sender, recipient common.Address, amount *big.Int) {}
 	txContext := vm.TxContext{
 		Origin:   t.json.Exec.Origin,
 		GasPrice: t.json.Exec.GasPrice,

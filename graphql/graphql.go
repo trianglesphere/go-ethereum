@@ -93,7 +93,7 @@ func (a *Account) Balance(ctx context.Context) (hexutil.Big, error) {
 	if err != nil {
 		return hexutil.Big{}, err
 	}
-	balance := state.GetBalance(a.address)
+	balance := state.GetBalance(context.TODO(), a.address)
 	if balance == nil {
 		return hexutil.Big{}, fmt.Errorf("failed to load balance %x", a.address)
 	}
@@ -105,7 +105,7 @@ func (a *Account) TransactionCount(ctx context.Context) (hexutil.Uint64, error) 
 	if err != nil {
 		return 0, err
 	}
-	return hexutil.Uint64(state.GetNonce(a.address)), nil
+	return hexutil.Uint64(state.GetNonce(context.TODO(), a.address)), nil
 }
 
 func (a *Account) Code(ctx context.Context) (hexutil.Bytes, error) {
@@ -113,7 +113,7 @@ func (a *Account) Code(ctx context.Context) (hexutil.Bytes, error) {
 	if err != nil {
 		return hexutil.Bytes{}, err
 	}
-	return state.GetCode(a.address), nil
+	return state.GetCode(context.TODO(), a.address), nil
 }
 
 func (a *Account) Storage(ctx context.Context, args struct{ Slot common.Hash }) (common.Hash, error) {
@@ -121,7 +121,7 @@ func (a *Account) Storage(ctx context.Context, args struct{ Slot common.Hash }) 
 	if err != nil {
 		return common.Hash{}, err
 	}
-	return state.GetState(a.address, args.Slot), nil
+	return state.GetState(context.TODO(), a.address, args.Slot), nil
 }
 
 // Log represents an individual log message. All arguments are mandatory.

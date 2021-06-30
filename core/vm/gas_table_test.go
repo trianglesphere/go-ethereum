@@ -83,13 +83,13 @@ func TestEIP2200(t *testing.T) {
 
 		statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 		statedb.CreateAccount(address)
-		statedb.SetCode(address, hexutil.MustDecode(tt.input))
-		statedb.SetState(address, common.Hash{}, common.BytesToHash([]byte{tt.original}))
+		statedb.SetCode(context.TODO(), address, hexutil.MustDecode(tt.input))
+		statedb.SetState(context.TODO(), address, common.Hash{}, common.BytesToHash([]byte{tt.original}))
 		statedb.Finalise(true) // Push the state into the "original" slot
 
 		vmctx := BlockContext{
-			CanTransfer: func(StateDB, common.Address, *big.Int) bool { return true },
-			Transfer:    func(StateDB, common.Address, common.Address, *big.Int) {},
+			CanTransfer: func(context.Context, StateDB, common.Address, *big.Int) bool { return true },
+			Transfer:    func(context.Context, StateDB, common.Address, common.Address, *big.Int) {},
 		}
 		vmenv := NewEVM(vmctx, TxContext{}, statedb, params.AllEthashProtocolChanges, Config{ExtraEips: []int{2200}})
 

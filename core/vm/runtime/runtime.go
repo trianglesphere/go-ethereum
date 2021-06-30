@@ -17,6 +17,7 @@
 package runtime
 
 import (
+	"context"
 	"math"
 	"math/big"
 	"time"
@@ -121,11 +122,12 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 	if rules := cfg.ChainConfig.Rules(vmenv.Context.BlockNumber); rules.IsBerlin {
 		cfg.State.PrepareAccessList(cfg.Origin, &address, vm.ActivePrecompiles(rules), nil)
 	}
-	cfg.State.CreateAccount(address)
+	cfg.State.CreateAccount(context.TODO(), address)
 	// set the receiver's (the executing contract) code for execution.
-	cfg.State.SetCode(address, code)
+	cfg.State.SetCode(context.TODO(), address, code)
 	// Call the code with the given configuration.
 	ret, _, err := vmenv.Call(
+		context.TODO(),
 		sender,
 		common.BytesToAddress([]byte("contract")),
 		input,
@@ -155,6 +157,7 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 	}
 	// Call the code with the given configuration.
 	code, address, leftOverGas, err := vmenv.Create(
+		context.TODO(),
 		sender,
 		input,
 		cfg.GasLimit,
@@ -173,7 +176,7 @@ func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, er
 
 	vmenv := NewEnv(cfg)
 
-	sender := cfg.State.GetOrNewStateObject(cfg.Origin)
+	sender := cfg.State.GetOrNewStateObject(context.TODO(), cfg.Origin)
 	statedb := cfg.State
 
 	if rules := cfg.ChainConfig.Rules(vmenv.Context.BlockNumber); rules.IsBerlin {
@@ -181,6 +184,7 @@ func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, er
 	}
 	// Call the code with the given configuration.
 	ret, leftOverGas, err := vmenv.Call(
+		context.TODO(),
 		sender,
 		address,
 		input,

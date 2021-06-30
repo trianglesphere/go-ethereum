@@ -18,6 +18,7 @@ package snapshot
 
 import (
 	"bytes"
+	"context"
 	"sync"
 
 	"github.com/VictoriaMetrics/fastcache"
@@ -26,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/opentracing/opentracing-go"
 )
 
 // diskLayer is a low level persistent snapshot built on top of a key-value store.
@@ -65,8 +67,8 @@ func (dl *diskLayer) Stale() bool {
 
 // Account directly retrieves the account associated with a particular hash in
 // the snapshot slim data format.
-func (dl *diskLayer) Account(hash common.Hash) (*Account, error) {
-	data, err := dl.AccountRLP(hash)
+func (dl *diskLayer) Account(ctx context.Context, hash common.Hash) (*Account, error) {
+	data, err := dl.AccountRLP(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -82,9 +84,10 @@ func (dl *diskLayer) Account(hash common.Hash) (*Account, error) {
 
 // AccountRLP directly retrieves the account RLP associated with a particular
 // hash in the snapshot slim data format.
-func (dl *diskLayer) AccountRLP(hash common.Hash) ([]byte, error) {
+func (dl *diskLayer) AccountRLP(ctx context.Context, hash common.Hash) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
+	span := opentracing.SpanFromContext(ctx)
 
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
@@ -101,6 +104,10 @@ func (dl *diskLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 
 	// Try to retrieve the account from the memory cache
 	if blob, found := dl.cache.HasGet(nil, hash[:]); found {
+		if span != nil {
+			span.SetTag("location", "diskLayer_cache")
+		}
+
 		snapshotCleanAccountHitMeter.Mark(1)
 		snapshotCleanAccountReadMeter.Mark(int64(len(blob)))
 		return blob, nil
@@ -108,6 +115,9 @@ func (dl *diskLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 	// Cache doesn't contain account, pull from disk and cache for later
 	blob := rawdb.ReadAccountSnapshot(dl.diskdb, hash)
 	dl.cache.Set(hash[:], blob)
+	if span != nil {
+		span.SetTag("location", "diskLayer")
+	}
 
 	snapshotCleanAccountMissMeter.Mark(1)
 	if n := len(blob); n > 0 {
@@ -120,9 +130,10 @@ func (dl *diskLayer) AccountRLP(hash common.Hash) ([]byte, error) {
 
 // Storage directly retrieves the storage data associated with a particular hash,
 // within a particular account.
-func (dl *diskLayer) Storage(accountHash, storageHash common.Hash) ([]byte, error) {
+func (dl *diskLayer) Storage(ctx context.Context, accountHash, storageHash common.Hash) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
+	span := opentracing.SpanFromContext(ctx)
 
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
@@ -141,10 +152,17 @@ func (dl *diskLayer) Storage(accountHash, storageHash common.Hash) ([]byte, erro
 
 	// Try to retrieve the storage slot from the memory cache
 	if blob, found := dl.cache.HasGet(nil, key); found {
+		if span != nil {
+			span.SetTag("location", "diskLayer_cache")
+		}
 		snapshotCleanStorageHitMeter.Mark(1)
 		snapshotCleanStorageReadMeter.Mark(int64(len(blob)))
 		return blob, nil
 	}
+	if span != nil {
+		span.SetTag("location", "diskLayer")
+	}
+
 	// Cache doesn't contain storage slot, pull from disk and cache for later
 	blob := rawdb.ReadStorageSnapshot(dl.diskdb, accountHash, storageHash)
 	dl.cache.Set(key, blob)

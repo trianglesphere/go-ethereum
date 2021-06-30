@@ -18,6 +18,7 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -33,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/opentracing/opentracing-go"
 )
 
 type revision struct {
@@ -238,28 +240,28 @@ func (s *StateDB) SubRefund(gas uint64) {
 
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
-func (s *StateDB) Exist(addr common.Address) bool {
-	return s.getStateObject(addr) != nil
+func (s *StateDB) Exist(ctx context.Context, addr common.Address) bool {
+	return s.getStateObject(ctx, addr) != nil
 }
 
 // Empty returns whether the state object is either non-existent
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
-func (s *StateDB) Empty(addr common.Address) bool {
-	so := s.getStateObject(addr)
+func (s *StateDB) Empty(ctx context.Context, addr common.Address) bool {
+	so := s.getStateObject(ctx, addr)
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
-func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetBalance(ctx context.Context, addr common.Address) *big.Int {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.Balance()
 	}
 	return common.Big0
 }
 
-func (s *StateDB) GetNonce(addr common.Address) uint64 {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetNonce(ctx context.Context, addr common.Address) uint64 {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.Nonce()
 	}
@@ -277,24 +279,24 @@ func (s *StateDB) BlockHash() common.Hash {
 	return s.bhash
 }
 
-func (s *StateDB) GetCode(addr common.Address) []byte {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetCode(ctx context.Context, addr common.Address) []byte {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.Code(s.db)
 	}
 	return nil
 }
 
-func (s *StateDB) GetCodeSize(addr common.Address) int {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetCodeSize(ctx context.Context, addr common.Address) int {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.CodeSize(s.db)
 	}
 	return 0
 }
 
-func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetCodeHash(ctx context.Context, addr common.Address) common.Hash {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
 		return common.Hash{}
 	}
@@ -302,10 +304,10 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 }
 
 // GetState retrieves a value from the given account's storage trie.
-func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetState(ctx context.Context, addr common.Address, hash common.Hash) common.Hash {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
-		return stateObject.GetState(s.db, hash)
+		return stateObject.GetState(ctx, s.db, hash)
 	}
 	return common.Hash{}
 }
@@ -323,9 +325,9 @@ func (s *StateDB) GetProofByHash(addrHash common.Hash) ([][]byte, error) {
 }
 
 // GetStorageProof returns the Merkle proof for given storage slot.
-func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, error) {
+func (s *StateDB) GetStorageProof(ctx context.Context, a common.Address, key common.Hash) ([][]byte, error) {
 	var proof proofList
-	trie := s.StorageTrie(a)
+	trie := s.StorageTrie(ctx, a)
 	if trie == nil {
 		return proof, errors.New("storage trie for requested address does not exist")
 	}
@@ -334,10 +336,10 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 }
 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
-func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetCommittedState(ctx context.Context, addr common.Address, hash common.Hash) common.Hash {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
-		return stateObject.GetCommittedState(s.db, hash)
+		return stateObject.GetCommittedState(ctx, s.db, hash)
 	}
 	return common.Hash{}
 }
@@ -349,8 +351,8 @@ func (s *StateDB) Database() Database {
 
 // StorageTrie returns the storage trie of an account.
 // The return value is a copy and is nil for non-existent accounts.
-func (s *StateDB) StorageTrie(addr common.Address) Trie {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) StorageTrie(ctx context.Context, addr common.Address) Trie {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
 		return nil
 	}
@@ -359,8 +361,8 @@ func (s *StateDB) StorageTrie(addr common.Address) Trie {
 	return cpy.getTrie(s.db)
 }
 
-func (s *StateDB) HasSuicided(addr common.Address) bool {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) HasSuicided(ctx context.Context, addr common.Address) bool {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.suicided
 	}
@@ -372,53 +374,53 @@ func (s *StateDB) HasSuicided(addr common.Address) bool {
  */
 
 // AddBalance adds amount to the account associated with addr.
-func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
-	stateObject := s.GetOrNewStateObject(addr)
+func (s *StateDB) AddBalance(ctx context.Context, addr common.Address, amount *big.Int) {
+	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.AddBalance(amount)
 	}
 }
 
 // SubBalance subtracts amount from the account associated with addr.
-func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
-	stateObject := s.GetOrNewStateObject(addr)
+func (s *StateDB) SubBalance(ctx context.Context, addr common.Address, amount *big.Int) {
+	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SubBalance(amount)
 	}
 }
 
-func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
-	stateObject := s.GetOrNewStateObject(addr)
+func (s *StateDB) SetBalance(ctx context.Context, addr common.Address, amount *big.Int) {
+	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)
 	}
 }
 
-func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
-	stateObject := s.GetOrNewStateObject(addr)
+func (s *StateDB) SetNonce(ctx context.Context, addr common.Address, nonce uint64) {
+	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
 	}
 }
 
-func (s *StateDB) SetCode(addr common.Address, code []byte) {
-	stateObject := s.GetOrNewStateObject(addr)
+func (s *StateDB) SetCode(ctx context.Context, addr common.Address, code []byte) {
+	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetCode(crypto.Keccak256Hash(code), code)
 	}
 }
 
-func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	stateObject := s.GetOrNewStateObject(addr)
+func (s *StateDB) SetState(ctx context.Context, addr common.Address, key, value common.Hash) {
+	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
-		stateObject.SetState(s.db, key, value)
+		stateObject.SetState(context.TODO(), s.db, key, value)
 	}
 }
 
 // SetStorage replaces the entire storage for the specified account with given
 // storage. This function should only be used for debugging.
-func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common.Hash) {
-	stateObject := s.GetOrNewStateObject(addr)
+func (s *StateDB) SetStorage(ctx context.Context, addr common.Address, storage map[common.Hash]common.Hash) {
+	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetStorage(storage)
 	}
@@ -429,8 +431,8 @@ func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common
 //
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after Suicide.
-func (s *StateDB) Suicide(addr common.Address) bool {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) Suicide(ctx context.Context, addr common.Address) bool {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
 		return false
 	}
@@ -491,8 +493,8 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 // getStateObject retrieves a state object given by the address, returning nil if
 // the object is not found or was deleted in this execution context. If you need
 // to differentiate between non-existent/just-deleted, use getDeletedStateObject.
-func (s *StateDB) getStateObject(addr common.Address) *stateObject {
-	if obj := s.getDeletedStateObject(addr); obj != nil && !obj.deleted {
+func (s *StateDB) getStateObject(ctx context.Context, addr common.Address) *stateObject {
+	if obj := s.getDeletedStateObject(ctx, addr); obj != nil && !obj.deleted {
 		return obj
 	}
 	return nil
@@ -502,9 +504,13 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 // nil for a deleted state object, it returns the actual object with the deleted
 // flag set. This is needed by the state journal to revert to the correct s-
 // destructed object instead of wiping all knowledge about the state object.
-func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
+func (s *StateDB) getDeletedStateObject(ctx context.Context, addr common.Address) *stateObject {
+	span := opentracing.SpanFromContext(ctx)
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
+		if span != nil {
+			span.SetTag("location", "stateObjects")
+		}
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -517,7 +523,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			defer func(start time.Time) { s.SnapshotAccountReads += time.Since(start) }(time.Now())
 		}
 		var acc *snapshot.Account
-		if acc, err = s.snap.Account(crypto.HashData(s.hasher, addr.Bytes())); err == nil {
+		if acc, err = s.snap.Account(ctx, crypto.HashData(s.hasher, addr.Bytes())); err == nil {
 			if acc == nil {
 				return nil
 			}
@@ -533,10 +539,15 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			if data.Root == (common.Hash{}) {
 				data.Root = emptyRoot
 			}
+
 		}
 	}
 	// If snapshot unavailable or reading from it failed, load from the database
 	if s.snap == nil || err != nil {
+		if span != nil {
+			span.SetTag("location", "trie")
+		}
+
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.AccountReads += time.Since(start) }(time.Now())
 		}
@@ -565,18 +576,18 @@ func (s *StateDB) setStateObject(object *stateObject) {
 }
 
 // GetOrNewStateObject retrieves a state object or create a new state object if nil.
-func (s *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
-	stateObject := s.getStateObject(addr)
+func (s *StateDB) GetOrNewStateObject(ctx context.Context, addr common.Address) *stateObject {
+	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
-		stateObject, _ = s.createObject(addr)
+		stateObject, _ = s.createObject(ctx, addr)
 	}
 	return stateObject
 }
 
 // createObject creates a new state object. If there is an existing account with
 // the given address, it is overwritten and returned as the second return value.
-func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) {
-	prev = s.getDeletedStateObject(addr) // Note, prev might have been deleted, we need that!
+func (s *StateDB) createObject(ctx context.Context, addr common.Address) (newobj, prev *stateObject) {
+	prev = s.getDeletedStateObject(ctx, addr) // Note, prev might have been deleted, we need that!
 
 	var prevdestruct bool
 	if s.snap != nil && prev != nil {
@@ -608,15 +619,15 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 //   2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
-func (s *StateDB) CreateAccount(addr common.Address) {
-	newObj, prev := s.createObject(addr)
+func (s *StateDB) CreateAccount(ctx context.Context, addr common.Address) {
+	newObj, prev := s.createObject(ctx, addr)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
 	}
 }
 
-func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) error {
-	so := db.getStateObject(addr)
+func (db *StateDB) ForEachStorage(ctx context.Context, addr common.Address, cb func(key, value common.Hash) bool) error {
+	so := db.getStateObject(ctx, addr)
 	if so == nil {
 		return nil
 	}

@@ -17,6 +17,7 @@
 package tracers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -197,21 +198,21 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 
 	// Push the wrapper for statedb.GetBalance
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		pushBigInt(dw.db.GetBalance(common.BytesToAddress(popSlice(ctx))), ctx)
+		pushBigInt(dw.db.GetBalance(context.TODO(), common.BytesToAddress(popSlice(ctx))), ctx)
 		return 1
 	})
 	vm.PutPropString(obj, "getBalance")
 
 	// Push the wrapper for statedb.GetNonce
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		ctx.PushInt(int(dw.db.GetNonce(common.BytesToAddress(popSlice(ctx)))))
+		ctx.PushInt(int(dw.db.GetNonce(context.TODO(), common.BytesToAddress(popSlice(ctx)))))
 		return 1
 	})
 	vm.PutPropString(obj, "getNonce")
 
 	// Push the wrapper for statedb.GetCode
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		code := dw.db.GetCode(common.BytesToAddress(popSlice(ctx)))
+		code := dw.db.GetCode(context.TODO(), common.BytesToAddress(popSlice(ctx)))
 
 		ptr := ctx.PushFixedBuffer(len(code))
 		copy(makeSlice(ptr, uint(len(code))), code)
@@ -224,7 +225,7 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 		hash := popSlice(ctx)
 		addr := popSlice(ctx)
 
-		state := dw.db.GetState(common.BytesToAddress(addr), common.BytesToHash(hash))
+		state := dw.db.GetState(context.TODO(), common.BytesToAddress(addr), common.BytesToHash(hash))
 
 		ptr := ctx.PushFixedBuffer(len(state))
 		copy(makeSlice(ptr, uint(len(state))), state[:])
@@ -234,7 +235,7 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 
 	// Push the wrapper for statedb.Exists
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		ctx.PushBoolean(dw.db.Exist(common.BytesToAddress(popSlice(ctx))))
+		ctx.PushBoolean(dw.db.Exist(context.TODO(), common.BytesToAddress(popSlice(ctx))))
 		return 1
 	})
 	vm.PutPropString(obj, "exists")

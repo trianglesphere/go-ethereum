@@ -18,6 +18,7 @@ package misc
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math/big"
 
@@ -73,13 +74,13 @@ func VerifyDAOHeaderExtraData(config *params.ChainConfig, header *types.Header) 
 // contract.
 func ApplyDAOHardFork(statedb *state.StateDB) {
 	// Retrieve the contract to refund balances into
-	if !statedb.Exist(params.DAORefundContract) {
-		statedb.CreateAccount(params.DAORefundContract)
+	if !statedb.Exist(context.TODO(), params.DAORefundContract) {
+		statedb.CreateAccount(context.TODO(), params.DAORefundContract)
 	}
 
 	// Move every DAO account and extra-balance account funds into the refund contract
 	for _, addr := range params.DAODrainList() {
-		statedb.AddBalance(params.DAORefundContract, statedb.GetBalance(addr))
-		statedb.SetBalance(addr, new(big.Int))
+		statedb.AddBalance(context.TODO(), params.DAORefundContract, statedb.GetBalance(context.TODO(), addr))
+		statedb.SetBalance(context.TODO(), addr, new(big.Int))
 	}
 }

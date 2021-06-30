@@ -17,6 +17,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -113,7 +114,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 
 // GetBalance returns the balance of the given address at the generated block.
 func (b *BlockGen) GetBalance(addr common.Address) *big.Int {
-	return b.statedb.GetBalance(addr)
+	return b.statedb.GetBalance(context.TODO(), addr)
 }
 
 // AddUncheckedTx forcefully adds a transaction to the block without any
@@ -147,10 +148,10 @@ func (b *BlockGen) AddUncheckedReceipt(receipt *types.Receipt) {
 // TxNonce returns the next valid transaction nonce for the
 // account at addr. It panics if the account does not exist.
 func (b *BlockGen) TxNonce(addr common.Address) uint64 {
-	if !b.statedb.Exist(addr) {
+	if !b.statedb.Exist(context.TODO(), addr) {
 		panic("account does not exist")
 	}
-	return b.statedb.GetNonce(addr)
+	return b.statedb.GetNonce(context.TODO(), addr)
 }
 
 // AddUncle adds an uncle header to the generated block.

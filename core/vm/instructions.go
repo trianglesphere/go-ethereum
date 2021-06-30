@@ -261,7 +261,7 @@ func opAddress(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, sco
 func opBalance(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	slot := scope.Stack.peek()
 	address := common.Address(slot.Bytes20())
-	slot.SetFromBig(interpreter.evm.StateDB.GetBalance(address))
+	slot.SetFromBig(interpreter.evm.StateDB.GetBalance(ctx, address))
 	return nil, nil
 }
 
@@ -343,7 +343,7 @@ func opReturnDataCopy(ctx context.Context, pc *uint64, interpreter *EVMInterpret
 
 func opExtCodeSize(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	slot := scope.Stack.peek()
-	slot.SetUint64(uint64(interpreter.evm.StateDB.GetCodeSize(slot.Bytes20())))
+	slot.SetUint64(uint64(interpreter.evm.StateDB.GetCodeSize(ctx, slot.Bytes20())))
 	return nil, nil
 }
 
@@ -383,7 +383,7 @@ func opExtCodeCopy(ctx context.Context, pc *uint64, interpreter *EVMInterpreter,
 		uint64CodeOffset = 0xffffffffffffffff
 	}
 	addr := common.Address(a.Bytes20())
-	codeCopy := getData(interpreter.evm.StateDB.GetCode(addr), uint64CodeOffset, length.Uint64())
+	codeCopy := getData(interpreter.evm.StateDB.GetCode(ctx, addr), uint64CodeOffset, length.Uint64())
 	scope.Memory.Set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
 	return nil, nil
@@ -418,10 +418,10 @@ func opExtCodeCopy(ctx context.Context, pc *uint64, interpreter *EVMInterpreter,
 func opExtCodeHash(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	slot := scope.Stack.peek()
 	address := common.Address(slot.Bytes20())
-	if interpreter.evm.StateDB.Empty(address) {
+	if interpreter.evm.StateDB.Empty(ctx, address) {
 		slot.Clear()
 	} else {
-		slot.SetBytes(interpreter.evm.StateDB.GetCodeHash(address).Bytes())
+		slot.SetBytes(interpreter.evm.StateDB.GetCodeHash(ctx, address).Bytes())
 	}
 	return nil, nil
 }
@@ -510,7 +510,7 @@ func opMstore8(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, sco
 func opSload(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	loc := scope.Stack.peek()
 	hash := common.Hash(loc.Bytes32())
-	val := interpreter.evm.StateDB.GetState(scope.Contract.Address(), hash)
+	val := interpreter.evm.StateDB.GetState(ctx, scope.Contract.Address(), hash)
 	loc.SetBytes(val.Bytes())
 	return nil, nil
 }
@@ -518,7 +518,7 @@ func opSload(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope
 func opSstore(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	loc := scope.Stack.pop()
 	val := scope.Stack.pop()
-	interpreter.evm.StateDB.SetState(scope.Contract.Address(),
+	interpreter.evm.StateDB.SetState(ctx, scope.Contract.Address(),
 		loc.Bytes32(), val.Bytes32())
 	return nil, nil
 }
@@ -786,9 +786,9 @@ func opStop(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope 
 
 func opSuicide(ctx context.Context, pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	beneficiary := scope.Stack.pop()
-	balance := interpreter.evm.StateDB.GetBalance(scope.Contract.Address())
-	interpreter.evm.StateDB.AddBalance(beneficiary.Bytes20(), balance)
-	interpreter.evm.StateDB.Suicide(scope.Contract.Address())
+	balance := interpreter.evm.StateDB.GetBalance(ctx, scope.Contract.Address())
+	interpreter.evm.StateDB.AddBalance(ctx, beneficiary.Bytes20(), balance)
+	interpreter.evm.StateDB.Suicide(ctx, scope.Contract.Address())
 	return nil, nil
 }
 
