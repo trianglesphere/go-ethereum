@@ -17,7 +17,7 @@
 package les
 
 import (
-	"context"
+	goContext "context"
 	"errors"
 	"fmt"
 
@@ -29,12 +29,12 @@ import (
 )
 
 // stateAtBlock retrieves the state database associated with a certain block.
-func (leth *LightEthereum) stateAtBlock(ctx context.Context, block *types.Block, reexec uint64) (*state.StateDB, error) {
+func (leth *LightEthereum) stateAtBlock(ctx goContext.Context, block *types.Block, reexec uint64) (*state.StateDB, error) {
 	return light.NewState(ctx, block.Header(), leth.odr), nil
 }
 
 // stateAtTransaction returns the execution environment of a certain transaction.
-func (leth *LightEthereum) stateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, error) {
+func (leth *LightEthereum) stateAtTransaction(ctx goContext.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, error) {
 	// Short circuit if it's genesis block.
 	if block.NumberU64() == 0 {
 		return nil, vm.BlockContext{}, nil, errors.New("no transaction in genesis")
@@ -64,7 +64,7 @@ func (leth *LightEthereum) stateAtTransaction(ctx context.Context, block *types.
 		}
 		// Not yet the searched for transaction, execute on top of the current state
 		vmenv := vm.NewEVM(context, txContext, statedb, leth.blockchain.Config(), vm.Config{})
-		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
+		if _, err := core.ApplyMessage(goContext.TODO(), vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
 		}
 		// Ensure any modifications are committed to the state

@@ -95,7 +95,7 @@ func (p *StateProcessor) Process(ctx context.Context, block *types.Block, stated
 }
 
 func applyTransaction(ctx context.Context, msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "apply-transcation")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "apply-transcation")
 	span.SetTag("txIndex", statedb.TxIndex())
 	defer span.Finish()
 
@@ -104,7 +104,7 @@ func applyTransaction(ctx context.Context, msg types.Message, config *params.Cha
 	evm.Reset(txContext, statedb)
 
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(evm, msg, gp)
+	result, err := ApplyMessage(ctx, evm, msg, gp)
 	if err != nil {
 		return nil, err
 	}

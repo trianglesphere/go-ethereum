@@ -17,7 +17,7 @@
 package eth
 
 import (
-	"context"
+	goContext "context"
 	"errors"
 	"fmt"
 	"time"
@@ -113,7 +113,7 @@ func (eth *Ethereum) stateAtBlock(block *types.Block, reexec uint64, base *state
 		if current = eth.blockchain.GetBlockByNumber(next); current == nil {
 			return nil, fmt.Errorf("block #%d not found", next)
 		}
-		_, _, _, err := eth.blockchain.Processor().Process(context.TODO(), current, statedb, vm.Config{})
+		_, _, _, err := eth.blockchain.Processor().Process(goContext.TODO(), current, statedb, vm.Config{})
 		if err != nil {
 			return nil, fmt.Errorf("processing block %d failed: %v", current.NumberU64(), err)
 		}
@@ -172,7 +172,7 @@ func (eth *Ethereum) stateAtTransaction(block *types.Block, txIndex int, reexec 
 		// Not yet the searched for transaction, execute on top of the current state
 		vmenv := vm.NewEVM(context, txContext, statedb, eth.blockchain.Config(), vm.Config{})
 		statedb.Prepare(tx.Hash(), block.Hash(), idx)
-		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
+		if _, err := core.ApplyMessage(goContext.TODO(), vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
 		}
 		// Ensure any modifications are committed to the state
