@@ -1670,10 +1670,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return 0, nil
 	}
-	// Create a span for each insert-chain batch
-	span := opentracing.GlobalTracer().StartSpan("insert-chain")
-	defer span.Finish()
-	ctx := opentracing.ContextWithSpan(context.Background(), span)
+	// // Create a span for each insert-chain batch
+	// span := opentracing.GlobalTracer().StartSpan("insert-chain")
+	// defer span.Finish()
+	// ctx := opentracing.ContextWithSpan(context.Background(), span)
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
 	senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
@@ -1851,7 +1851,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		statedb.StartPrefetcher("chain")
 		activeState = statedb
 
-		span, ctx := opentracing.StartSpanFromContext(ctx, "insert-block")
+		span, ctx := opentracing.StartSpanFromContext(context.Background(), "insert-block")
 		span.SetTag("blockNumber", fmt.Sprintf("%v", block.NumberU64()))
 
 		// If we have a followup block, run that against the current state to pre-cache

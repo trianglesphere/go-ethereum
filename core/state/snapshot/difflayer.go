@@ -319,6 +319,7 @@ func (dl *diffLayer) AccountRLP(ctx context.Context, hash common.Hash) ([]byte, 
 func (dl *diffLayer) accountRLP(ctx context.Context, hash common.Hash, depth int) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
+	span := opentracing.SpanFromContext(ctx)
 
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
@@ -327,6 +328,9 @@ func (dl *diffLayer) accountRLP(ctx context.Context, hash common.Hash, depth int
 	}
 	// If the account is known locally, return it
 	if data, ok := dl.accountData[hash]; ok {
+		if span != nil {
+			span.SetTag("location", "diffLayer")
+		}
 		snapshotDirtyAccountHitMeter.Mark(1)
 		snapshotDirtyAccountHitDepthHist.Update(int64(depth))
 		snapshotDirtyAccountReadMeter.Mark(int64(len(data)))
@@ -335,6 +339,9 @@ func (dl *diffLayer) accountRLP(ctx context.Context, hash common.Hash, depth int
 	}
 	// If the account is known locally, but deleted, return it
 	if _, ok := dl.destructSet[hash]; ok {
+		if span != nil {
+			span.SetTag("location", "diffLayer")
+		}
 		snapshotDirtyAccountHitMeter.Mark(1)
 		snapshotDirtyAccountHitDepthHist.Update(int64(depth))
 		snapshotDirtyAccountInexMeter.Mark(1)
@@ -385,6 +392,7 @@ func (dl *diffLayer) Storage(ctx context.Context, accountHash, storageHash commo
 func (dl *diffLayer) storage(ctx context.Context, accountHash, storageHash common.Hash, depth int) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
+	span := opentracing.SpanFromContext(ctx)
 
 	// If the layer was flattened into, consider it invalid (any live reference to
 	// the original should be marked as unusable).
@@ -394,6 +402,9 @@ func (dl *diffLayer) storage(ctx context.Context, accountHash, storageHash commo
 	// If the account is known locally, try to resolve the slot locally
 	if storage, ok := dl.storageData[accountHash]; ok {
 		if data, ok := storage[storageHash]; ok {
+			if span != nil {
+				span.SetTag("location", "diffLayer")
+			}
 			snapshotDirtyStorageHitMeter.Mark(1)
 			snapshotDirtyStorageHitDepthHist.Update(int64(depth))
 			if n := len(data); n > 0 {
@@ -407,6 +418,9 @@ func (dl *diffLayer) storage(ctx context.Context, accountHash, storageHash commo
 	}
 	// If the account is known locally, but deleted, return an empty slot
 	if _, ok := dl.destructSet[accountHash]; ok {
+		if span != nil {
+			span.SetTag("location", "diffLayer")
+		}
 		snapshotDirtyStorageHitMeter.Mark(1)
 		snapshotDirtyStorageHitDepthHist.Update(int64(depth))
 		snapshotDirtyStorageInexMeter.Mark(1)

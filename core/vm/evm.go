@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/opentracing/opentracing-go"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -208,6 +209,8 @@ func (evm *EVM) Interpreter() Interpreter {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(ctx context.Context, caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "evm-call")
+	defer span.Finish()
 	if evm.Config.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -284,6 +287,8 @@ func (evm *EVM) Call(ctx context.Context, caller ContractRef, addr common.Addres
 // CallCode differs from Call in the sense that it executes the given address'
 // code with the caller as context.
 func (evm *EVM) CallCode(ctx context.Context, caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "evm-callcode")
+	defer span.Finish()
 	if evm.Config.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -327,6 +332,9 @@ func (evm *EVM) CallCode(ctx context.Context, caller ContractRef, addr common.Ad
 // DelegateCall differs from CallCode in the sense that it executes the given address'
 // code with the caller as context and the caller is set to the caller of the caller.
 func (evm *EVM) DelegateCall(ctx context.Context, caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "evm-delegatecall")
+	defer span.Finish()
+
 	if evm.Config.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -361,6 +369,8 @@ func (evm *EVM) DelegateCall(ctx context.Context, caller ContractRef, addr commo
 // Opcodes that attempt to perform such modifications will result in exceptions
 // instead of performing the modifications.
 func (evm *EVM) StaticCall(ctx context.Context, caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "evm-staticcall")
+	defer span.Finish()
 	if evm.Config.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -506,6 +516,8 @@ func (evm *EVM) create(ctx context.Context, caller ContractRef, codeAndHash *cod
 
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(ctx context.Context, caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "evm-create")
+	defer span.Finish()
 	contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(ctx, caller.Address()))
 	return evm.create(ctx, caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
@@ -515,6 +527,8 @@ func (evm *EVM) Create(ctx context.Context, caller ContractRef, code []byte, gas
 // The different between Create2 with Create is Create2 uses sha3(0xff ++ msg.sender ++ salt ++ sha3(init_code))[12:]
 // instead of the usual sender-and-nonce-hash as the address where the contract is initialized at.
 func (evm *EVM) Create2(ctx context.Context, caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint256.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "evm-create2")
+	defer span.Finish()
 	codeAndHash := &codeAndHash{code: code}
 	contractAddr = crypto.CreateAddress2(caller.Address(), salt.Bytes32(), codeAndHash.Hash().Bytes())
 	return evm.create(ctx, caller, codeAndHash, gas, endowment, contractAddr)
