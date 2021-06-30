@@ -134,6 +134,8 @@ func applyTransaction(ctx context.Context, msg types.Message, config *params.Cha
 		receipt.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, tx.Nonce())
 	}
 
+	span.SetTag("txHash", receipt.TxHash.String())
+
 	// Set the receipt logs and create the bloom filter.
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
