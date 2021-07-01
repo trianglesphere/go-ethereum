@@ -247,8 +247,10 @@ func (evm *EVM) Call(ctx context.Context, caller ContractRef, addr common.Addres
 	}
 
 	if isPrecompile {
+		span.SetTag("precompile", "true")
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
 	} else {
+		span.SetTag("precompile", "false")
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		code := evm.StateDB.GetCode(ctx, addr)
@@ -307,8 +309,10 @@ func (evm *EVM) CallCode(ctx context.Context, caller ContractRef, addr common.Ad
 
 	// It is allowed to call precompiles, even via delegatecall
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
+		span.SetTag("precompile", "true")
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
 	} else {
+		span.SetTag("precompile", "false")
 		addrCopy := addr
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
@@ -347,7 +351,11 @@ func (evm *EVM) DelegateCall(ctx context.Context, caller ContractRef, addr commo
 	// It is allowed to call precompiles, even via delegatecall
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
+		span.SetTag("precompile", "true")
+
 	} else {
+		span.SetTag("precompile", "false")
+
 		addrCopy := addr
 		// Initialise a new contract and make initialise the delegate values
 		contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
@@ -392,8 +400,10 @@ func (evm *EVM) StaticCall(ctx context.Context, caller ContractRef, addr common.
 	evm.StateDB.AddBalance(ctx, addr, big0)
 
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
+		span.SetTag("precompile", "true")
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
 	} else {
+		span.SetTag("precompile", "false")
 		// At this point, we use a copy of address. If we don't, the go compiler will
 		// leak the 'contract' to the outer scope, and make allocation for 'contract'
 		// even if the actual execution ends on RunPrecompiled above.
