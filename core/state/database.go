@@ -161,12 +161,12 @@ func (db *cachingDB) CopyTrie(t Trie) Trie {
 func (db *cachingDB) ContractCode(ctx context.Context, addrHash, codeHash common.Hash) ([]byte, error) {
 	if code := db.codeCache.Get(nil, codeHash.Bytes()); len(code) > 0 {
 		if span := opentracing.SpanFromContext(ctx); span != nil {
-			span.SetTag("state-location", "code-cache")
+			span.SetTag("storage-location", "code-cache")
 		}
 		return code, nil
 	}
 	if span := opentracing.SpanFromContext(ctx); span != nil {
-		span.SetTag("state-location", "db")
+		span.SetTag("storage-location", "db")
 	}
 	code := rawdb.ReadCode(db.db.DiskDB(), codeHash)
 	if len(code) > 0 {

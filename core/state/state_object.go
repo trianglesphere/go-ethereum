@@ -188,7 +188,7 @@ func (s *stateObject) GetState(ctx context.Context, db Database, key common.Hash
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
 		if span := opentracing.SpanFromContext(ctx); span != nil {
-			span.SetTag("state-location", "dirty-storage")
+			span.SetTag("storage-location", "dirty-storage")
 		}
 		return value
 	}
@@ -205,13 +205,13 @@ func (s *stateObject) GetCommittedState(ctx context.Context, db Database, key co
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
 		if span := opentracing.SpanFromContext(ctx); span != nil {
-			span.SetTag("state-location", "pending-storage")
+			span.SetTag("storage-location", "pending-storage")
 		}
 		return value
 	}
 	if value, cached := s.originStorage[key]; cached {
 		if span := opentracing.SpanFromContext(ctx); span != nil {
-			span.SetTag("state-location", "state-object-storage-cache")
+			span.SetTag("storage-location", "state-object-storage-cache")
 		}
 		return value
 	}
@@ -244,7 +244,7 @@ func (s *stateObject) GetCommittedState(ctx context.Context, db Database, key co
 		//   2) we don't have new values, and can deliver empty response back
 		if _, destructed := s.db.snapDestructs[s.addrHash]; destructed {
 			if span := opentracing.SpanFromContext(ctx); span != nil {
-				span.SetTag("state-location", "snap-deleted-cache")
+				span.SetTag("storage-location", "snap-deleted-cache")
 			}
 			return common.Hash{}
 		}
@@ -266,7 +266,7 @@ func (s *stateObject) GetCommittedState(ctx context.Context, db Database, key co
 			return common.Hash{}
 		}
 		if span := opentracing.SpanFromContext(ctx); span != nil {
-			span.SetTag("state-location", "trie")
+			span.SetTag("storage-location", "trie")
 		}
 	}
 	var value common.Hash
@@ -495,7 +495,7 @@ func (s *stateObject) Address() common.Address {
 func (s *stateObject) Code(ctx context.Context, db Database) []byte {
 	if s.code != nil {
 		if span := opentracing.SpanFromContext(ctx); span != nil {
-			span.SetTag("state-location", "self-cache")
+			span.SetTag("storage-location", "self-cache")
 		}
 		return s.code
 	}
@@ -516,7 +516,7 @@ func (s *stateObject) Code(ctx context.Context, db Database) []byte {
 func (s *stateObject) CodeSize(ctx context.Context, db Database) int {
 	if s.code != nil {
 		if span := opentracing.SpanFromContext(ctx); span != nil {
-			span.SetTag("state-location", "self-cache")
+			span.SetTag("storage-location", "self-cache")
 		}
 		return len(s.code)
 	}
