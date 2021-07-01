@@ -241,18 +241,30 @@ func (s *StateDB) SubRefund(gas uint64) {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(ctx context.Context, addr common.Address) bool {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-exist")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	defer span.Finish()
 	return s.getStateObject(ctx, addr) != nil
 }
 
 // Empty returns whether the state object is either non-existent
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(ctx context.Context, addr common.Address) bool {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-empty")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	defer span.Finish()
 	so := s.getStateObject(ctx, addr)
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(ctx context.Context, addr common.Address) *big.Int {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getbalance")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.Balance()
@@ -261,6 +273,10 @@ func (s *StateDB) GetBalance(ctx context.Context, addr common.Address) *big.Int 
 }
 
 func (s *StateDB) GetNonce(ctx context.Context, addr common.Address) uint64 {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-nonce")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.Nonce()
@@ -280,22 +296,34 @@ func (s *StateDB) BlockHash() common.Hash {
 }
 
 func (s *StateDB) GetCode(ctx context.Context, addr common.Address) []byte {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getcode")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "code")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
-		return stateObject.Code(s.db)
+		return stateObject.Code(ctx, s.db)
 	}
 	return nil
 }
 
 func (s *StateDB) GetCodeSize(ctx context.Context, addr common.Address) int {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getcodesize")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "codesize")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
-		return stateObject.CodeSize(s.db)
+		return stateObject.CodeSize(ctx, s.db)
 	}
 	return 0
 }
 
 func (s *StateDB) GetCodeHash(ctx context.Context, addr common.Address) common.Hash {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getcodehash")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "codehash")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
 		return common.Hash{}
@@ -305,6 +333,11 @@ func (s *StateDB) GetCodeHash(ctx context.Context, addr common.Address) common.H
 
 // GetState retrieves a value from the given account's storage trie.
 func (s *StateDB) GetState(ctx context.Context, addr common.Address, hash common.Hash) common.Hash {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getstate")
+	span.SetTag("address", addr)
+	span.SetTag("hash", hash)
+	span.SetTag("lookup", "state")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.GetState(ctx, s.db, hash)
@@ -337,6 +370,11 @@ func (s *StateDB) GetStorageProof(ctx context.Context, a common.Address, key com
 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(ctx context.Context, addr common.Address, hash common.Hash) common.Hash {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getcommittedstate")
+	span.SetTag("address", addr)
+	span.SetTag("hash", hash)
+	span.SetTag("lookup", "state")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.GetCommittedState(ctx, s.db, hash)
@@ -352,6 +390,9 @@ func (s *StateDB) Database() Database {
 // StorageTrie returns the storage trie of an account.
 // The return value is a copy and is nil for non-existent accounts.
 func (s *StateDB) StorageTrie(ctx context.Context, addr common.Address) Trie {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-storage-trie")
+	span.SetTag("address", addr)
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
 		return nil
@@ -362,6 +403,10 @@ func (s *StateDB) StorageTrie(ctx context.Context, addr common.Address) Trie {
 }
 
 func (s *StateDB) HasSuicided(ctx context.Context, addr common.Address) bool {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-has-suicided")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
 		return stateObject.suicided
@@ -375,6 +420,11 @@ func (s *StateDB) HasSuicided(ctx context.Context, addr common.Address) bool {
 
 // AddBalance adds amount to the account associated with addr.
 func (s *StateDB) AddBalance(ctx context.Context, addr common.Address, amount *big.Int) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-add-balance")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	span.SetTag("setter", "true")
+	defer span.Finish()
 	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.AddBalance(amount)
@@ -383,6 +433,11 @@ func (s *StateDB) AddBalance(ctx context.Context, addr common.Address, amount *b
 
 // SubBalance subtracts amount from the account associated with addr.
 func (s *StateDB) SubBalance(ctx context.Context, addr common.Address, amount *big.Int) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-sub-balance")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	span.SetTag("setter", "true")
+	defer span.Finish()
 	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SubBalance(amount)
@@ -390,6 +445,11 @@ func (s *StateDB) SubBalance(ctx context.Context, addr common.Address, amount *b
 }
 
 func (s *StateDB) SetBalance(ctx context.Context, addr common.Address, amount *big.Int) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-set-balance")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	span.SetTag("setter", "true")
+	defer span.Finish()
 	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)
@@ -397,6 +457,11 @@ func (s *StateDB) SetBalance(ctx context.Context, addr common.Address, amount *b
 }
 
 func (s *StateDB) SetNonce(ctx context.Context, addr common.Address, nonce uint64) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-set-nonce")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	span.SetTag("setter", "true")
+	defer span.Finish()
 	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
@@ -404,6 +469,11 @@ func (s *StateDB) SetNonce(ctx context.Context, addr common.Address, nonce uint6
 }
 
 func (s *StateDB) SetCode(ctx context.Context, addr common.Address, code []byte) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-set-code")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "code")
+	span.SetTag("setter", "true")
+	defer span.Finish()
 	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetCode(crypto.Keccak256Hash(code), code)
@@ -411,6 +481,12 @@ func (s *StateDB) SetCode(ctx context.Context, addr common.Address, code []byte)
 }
 
 func (s *StateDB) SetState(ctx context.Context, addr common.Address, key, value common.Hash) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-set-state")
+	span.SetTag("hash", key)
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "state")
+	span.SetTag("setter", "true")
+	defer span.Finish()
 	stateObject := s.GetOrNewStateObject(ctx, addr)
 	if stateObject != nil {
 		stateObject.SetState(context.TODO(), s.db, key, value)
@@ -432,6 +508,10 @@ func (s *StateDB) SetStorage(ctx context.Context, addr common.Address, storage m
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after Suicide.
 func (s *StateDB) Suicide(ctx context.Context, addr common.Address) bool {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-suicide")
+	span.SetTag("address", addr)
+	span.SetTag("lookup", "account")
+	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
 		return false
@@ -620,6 +700,9 @@ func (s *StateDB) createObject(ctx context.Context, addr common.Address) (newobj
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
 func (s *StateDB) CreateAccount(ctx context.Context, addr common.Address) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-create-account")
+	span.SetTag("address", addr)
+	defer span.Finish()
 	newObj, prev := s.createObject(ctx, addr)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)

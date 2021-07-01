@@ -265,7 +265,7 @@ func main() {
 	cfg := jaegercfg.Configuration{
 		ServiceName: "go-ethereum",
 		Sampler: &jaegercfg.SamplerConfig{
-			Type:  jaeger.SamplerTypeConst,
+			Type:  jaeger.SamplerTypeRateLimiting,
 			Param: 1,
 		},
 	}

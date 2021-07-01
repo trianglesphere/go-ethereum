@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/opentracing/opentracing-go"
 )
 
 var emptyCodeHash = crypto.Keccak256(nil)
@@ -186,6 +187,9 @@ func (s *stateObject) GetState(ctx context.Context, db Database, key common.Hash
 	// If we have a dirty value for this state entry, return it
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.SetTag("state-location", "dirty-storage")
+		}
 		return value
 	}
 	// Otherwise return the entry's original value
@@ -200,9 +204,15 @@ func (s *stateObject) GetCommittedState(ctx context.Context, db Database, key co
 	}
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.SetTag("state-location", "pending-storage")
+		}
 		return value
 	}
 	if value, cached := s.originStorage[key]; cached {
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.SetTag("state-location", "state-object-storage-cache")
+		}
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -233,6 +243,9 @@ func (s *stateObject) GetCommittedState(ctx context.Context, db Database, key co
 		//      have been handles via pendingStorage above.
 		//   2) we don't have new values, and can deliver empty response back
 		if _, destructed := s.db.snapDestructs[s.addrHash]; destructed {
+			if span := opentracing.SpanFromContext(ctx); span != nil {
+				span.SetTag("state-location", "snap-deleted-cache")
+			}
 			return common.Hash{}
 		}
 		enc, err = s.db.snap.Storage(ctx, s.addrHash, crypto.Keccak256Hash(key.Bytes()))
@@ -251,6 +264,9 @@ func (s *stateObject) GetCommittedState(ctx context.Context, db Database, key co
 		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
 			s.setError(err)
 			return common.Hash{}
+		}
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.SetTag("state-location", "trie")
 		}
 	}
 	var value common.Hash
@@ -476,14 +492,17 @@ func (s *stateObject) Address() common.Address {
 }
 
 // Code returns the contract code associated with this object, if any.
-func (s *stateObject) Code(db Database) []byte {
+func (s *stateObject) Code(ctx context.Context, db Database) []byte {
 	if s.code != nil {
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.SetTag("state-location", "self-cache")
+		}
 		return s.code
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return nil
 	}
-	code, err := db.ContractCode(s.addrHash, common.BytesToHash(s.CodeHash()))
+	code, err := db.ContractCode(ctx, s.addrHash, common.BytesToHash(s.CodeHash()))
 	if err != nil {
 		s.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
 	}
@@ -494,14 +513,17 @@ func (s *stateObject) Code(db Database) []byte {
 // CodeSize returns the size of the contract code associated with this object,
 // or zero if none. This method is an almost mirror of Code, but uses a cache
 // inside the database to avoid loading codes seen recently.
-func (s *stateObject) CodeSize(db Database) int {
+func (s *stateObject) CodeSize(ctx context.Context, db Database) int {
 	if s.code != nil {
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.SetTag("state-location", "self-cache")
+		}
 		return len(s.code)
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return 0
 	}
-	size, err := db.ContractCodeSize(s.addrHash, common.BytesToHash(s.CodeHash()))
+	size, err := db.ContractCodeSize(ctx, s.addrHash, common.BytesToHash(s.CodeHash()))
 	if err != nil {
 		s.setError(fmt.Errorf("can't load code size %x: %v", s.CodeHash(), err))
 	}
@@ -509,7 +531,7 @@ func (s *stateObject) CodeSize(db Database) int {
 }
 
 func (s *stateObject) SetCode(codeHash common.Hash, code []byte) {
-	prevcode := s.Code(s.db.db)
+	prevcode := s.Code(context.TODO(), s.db.db)
 	s.db.journal.append(codeChange{
 		account:  &s.address,
 		prevhash: s.CodeHash(),

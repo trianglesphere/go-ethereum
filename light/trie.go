@@ -71,7 +71,7 @@ func (db *odrDatabase) CopyTrie(t state.Trie) state.Trie {
 	}
 }
 
-func (db *odrDatabase) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
+func (db *odrDatabase) ContractCode(ctx context.Context, addrHash, codeHash common.Hash) ([]byte, error) {
 	if codeHash == sha3Nil {
 		return nil, nil
 	}
@@ -86,8 +86,8 @@ func (db *odrDatabase) ContractCode(addrHash, codeHash common.Hash) ([]byte, err
 	return req.Data, err
 }
 
-func (db *odrDatabase) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
-	code, err := db.ContractCode(addrHash, codeHash)
+func (db *odrDatabase) ContractCodeSize(ctx context.Context, addrHash, codeHash common.Hash) (int, error) {
+	code, err := db.ContractCode(ctx, addrHash, codeHash)
 	return len(code), err
 }
 

@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
+	"github.com/opentracing/opentracing-go"
 )
 
 var (
@@ -403,7 +404,7 @@ func (dl *diffLayer) storage(ctx context.Context, accountHash, storageHash commo
 	if storage, ok := dl.storageData[accountHash]; ok {
 		if data, ok := storage[storageHash]; ok {
 			if span != nil {
-				span.SetTag("location", "diffLayer")
+				span.SetTag("storage-location", "diffLayer")
 			}
 			snapshotDirtyStorageHitMeter.Mark(1)
 			snapshotDirtyStorageHitDepthHist.Update(int64(depth))
@@ -419,7 +420,7 @@ func (dl *diffLayer) storage(ctx context.Context, accountHash, storageHash commo
 	// If the account is known locally, but deleted, return an empty slot
 	if _, ok := dl.destructSet[accountHash]; ok {
 		if span != nil {
-			span.SetTag("location", "diffLayer")
+			span.SetTag("storage-location", "diffLayer")
 		}
 		snapshotDirtyStorageHitMeter.Mark(1)
 		snapshotDirtyStorageHitDepthHist.Update(int64(depth))

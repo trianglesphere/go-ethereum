@@ -18,6 +18,7 @@ package state
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -119,7 +120,7 @@ func (it *NodeIterator) step() error {
 	if !bytes.Equal(account.CodeHash, emptyCodeHash) {
 		it.codeHash = common.BytesToHash(account.CodeHash)
 		addrHash := common.BytesToHash(it.stateIt.LeafKey())
-		it.code, err = it.state.db.ContractCode(addrHash, common.BytesToHash(account.CodeHash))
+		it.code, err = it.state.db.ContractCode(context.TODO(), addrHash, common.BytesToHash(account.CodeHash))
 		if err != nil {
 			return fmt.Errorf("code %x: %v", account.CodeHash, err)
 		}

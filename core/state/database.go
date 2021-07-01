@@ -17,6 +17,7 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/trie"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/opentracing/opentracing-go"
 )
 
 const (
@@ -48,10 +50,10 @@ type Database interface {
 	CopyTrie(Trie) Trie
 
 	// ContractCode retrieves a particular contract's code.
-	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
+	ContractCode(ctx context.Context, addrHash, codeHash common.Hash) ([]byte, error)
 
 	// ContractCodeSize retrieves a particular contracts code's size.
-	ContractCodeSize(addrHash, codeHash common.Hash) (int, error)
+	ContractCodeSize(ctx context.Context, addrHash, codeHash common.Hash) (int, error)
 
 	// TrieDB retrieves the low level trie database used for data storage.
 	TrieDB() *trie.Database
@@ -156,9 +158,15 @@ func (db *cachingDB) CopyTrie(t Trie) Trie {
 }
 
 // ContractCode retrieves a particular contract's code.
-func (db *cachingDB) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
+func (db *cachingDB) ContractCode(ctx context.Context, addrHash, codeHash common.Hash) ([]byte, error) {
 	if code := db.codeCache.Get(nil, codeHash.Bytes()); len(code) > 0 {
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.SetTag("state-location", "code-cache")
+		}
 		return code, nil
+	}
+	if span := opentracing.SpanFromContext(ctx); span != nil {
+		span.SetTag("state-location", "db")
 	}
 	code := rawdb.ReadCode(db.db.DiskDB(), codeHash)
 	if len(code) > 0 {
@@ -186,11 +194,11 @@ func (db *cachingDB) ContractCodeWithPrefix(addrHash, codeHash common.Hash) ([]b
 }
 
 // ContractCodeSize retrieves a particular contracts code's size.
-func (db *cachingDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
+func (db *cachingDB) ContractCodeSize(ctx context.Context, addrHash, codeHash common.Hash) (int, error) {
 	if cached, ok := db.codeSizeCache.Get(codeHash); ok {
 		return cached.(int), nil
 	}
-	code, err := db.ContractCode(addrHash, codeHash)
+	code, err := db.ContractCode(ctx, addrHash, codeHash)
 	return len(code), err
 }
 

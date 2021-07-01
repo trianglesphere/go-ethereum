@@ -153,14 +153,14 @@ func (dl *diskLayer) Storage(ctx context.Context, accountHash, storageHash commo
 	// Try to retrieve the storage slot from the memory cache
 	if blob, found := dl.cache.HasGet(nil, key); found {
 		if span != nil {
-			span.SetTag("location", "diskLayer_cache")
+			span.SetTag("storage-location", "diskLayer_cache")
 		}
 		snapshotCleanStorageHitMeter.Mark(1)
 		snapshotCleanStorageReadMeter.Mark(int64(len(blob)))
 		return blob, nil
 	}
 	if span != nil {
-		span.SetTag("location", "diskLayer")
+		span.SetTag("storage-location", "diskLayer")
 	}
 
 	// Cache doesn't contain storage slot, pull from disk and cache for later

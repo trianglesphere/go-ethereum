@@ -17,6 +17,7 @@
 package state
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -163,7 +164,7 @@ func (s *StateDB) DumpToCollector(c DumpCollector, conf *DumpConfig) (nextKey []
 		addr := common.BytesToAddress(addrBytes)
 		obj := newObject(s, addr, data)
 		if !conf.SkipCode {
-			account.Code = obj.Code(s.db)
+			account.Code = obj.Code(context.TODO(), s.db)
 		}
 		if !conf.SkipStorage {
 			account.Storage = make(map[common.Hash]string)
