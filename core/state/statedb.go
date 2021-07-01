@@ -871,7 +871,7 @@ func (s *StateDB) GetRefund() uint64 {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(ctx context.Context, deleteEmptyObjects bool) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "sdb-finalize")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-finalize")
 	defer span.Finish()
 	addressesToPrefetch := make([][]byte, 0, len(s.journal.dirties))
 	for addr := range s.journal.dirties {
@@ -919,7 +919,7 @@ func (s *StateDB) Finalise(ctx context.Context, deleteEmptyObjects bool) {
 // It is called in between transactions to get the root hash that
 // goes into transaction receipts.
 func (s *StateDB) IntermediateRoot(ctx context.Context, deleteEmptyObjects bool) common.Hash {
-	span, _ := opentracing.StartSpanFromContext(ctx, "intermediate-root")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "intermediate-root")
 	defer span.Finish()
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(ctx, deleteEmptyObjects)

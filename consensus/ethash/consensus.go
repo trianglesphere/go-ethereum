@@ -589,7 +589,7 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.H
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
 // setting the final state on the header
 func (ethash *Ethash) Finalize(ctx context.Context, chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "finalize")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "finalize")
 	defer span.Finish()
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
