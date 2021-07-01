@@ -593,7 +593,7 @@ func (ethash *Ethash) Finalize(ctx context.Context, chain consensus.ChainHeaderR
 	defer span.Finish()
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.Root = state.IntermediateRoot(ctx, chain.Config().IsEIP158(header.Number))
 }
 
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and

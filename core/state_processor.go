@@ -112,9 +112,9 @@ func applyTransaction(ctx context.Context, msg types.Message, config *params.Cha
 	// Update the state with pending changes.
 	var root []byte
 	if config.IsByzantium(header.Number) {
-		statedb.Finalise(true)
+		statedb.Finalise(ctx, true)
 	} else {
-		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
+		root = statedb.IntermediateRoot(ctx, config.IsEIP158(header.Number)).Bytes()
 	}
 	*usedGas += result.UsedGas
 
