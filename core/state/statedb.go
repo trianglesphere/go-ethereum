@@ -310,7 +310,7 @@ func (s *StateDB) GetCode(ctx context.Context, addr common.Address) []byte {
 func (s *StateDB) GetCodeSize(ctx context.Context, addr common.Address) int {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getcodesize")
 	span.SetTag("address", addr)
-	span.SetTag("lookup", "codesize")
+	span.SetTag("lookup", "code")
 	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject != nil {
@@ -322,7 +322,7 @@ func (s *StateDB) GetCodeSize(ctx context.Context, addr common.Address) int {
 func (s *StateDB) GetCodeHash(ctx context.Context, addr common.Address) common.Hash {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "sdb-getcodehash")
 	span.SetTag("address", addr)
-	span.SetTag("lookup", "codehash")
+	span.SetTag("lookup", "account")
 	defer span.Finish()
 	stateObject := s.getStateObject(ctx, addr)
 	if stateObject == nil {
