@@ -17,11 +17,13 @@
 package state
 
 import (
+	"context"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/opentracing/opentracing-go"
 )
 
 var (
@@ -74,9 +76,13 @@ func newTriePrefetcher(db Database, root common.Hash, namespace string) *triePre
 
 // close iterates over all the subfetchers, aborts any that were left spinning
 // and reports the stats to the metrics subsystem.
-func (p *triePrefetcher) close() {
+func (p *triePrefetcher) close(ctx context.Context) {
+	totalProcessed := 0
+	totalLeft := 0
 	for _, fetcher := range p.fetchers {
 		fetcher.abort() // safe to do multiple times
+		totalProcessed += fetcher.proccessedKeys
+		totalLeft += len(fetcher.tasks)
 
 		if metrics.Enabled {
 			if fetcher.root == p.root {
@@ -99,6 +105,10 @@ func (p *triePrefetcher) close() {
 				p.storageWasteMeter.Mark(int64(len(fetcher.seen)))
 			}
 		}
+	}
+	if span := opentracing.SpanFromContext(ctx); span != nil {
+		span.SetTag("totalLeft", totalLeft)
+		span.SetTag("totalProcessed", totalProcessed)
 	}
 	// Clear out all fetchers (will crash on a second call, deliberate)
 	p.fetchers = nil
@@ -200,8 +210,9 @@ type subfetcher struct {
 	root common.Hash // Root hash of the trie to prefetch
 	trie Trie        // Trie being populated with nodes
 
-	tasks [][]byte   // Items queued up for retrieval
-	lock  sync.Mutex // Lock protecting the task queue
+	proccessedKeys int
+	tasks          [][]byte   // Items queued up for retrieval
+	lock           sync.Mutex // Lock protecting the task queue
 
 	wake chan struct{}  // Wake channel if a new task is scheduled
 	stop chan struct{}  // Channel to interrupt processing
@@ -319,6 +330,7 @@ func (sf *subfetcher) loop() {
 						sf.trie.TryGet(task)
 						sf.seen[taskid] = struct{}{}
 					}
+					sf.proccessedKeys++
 				}
 			}
 

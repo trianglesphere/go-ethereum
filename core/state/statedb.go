@@ -156,7 +156,7 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 // commit phase, most of the needed data is already hot.
 func (s *StateDB) StartPrefetcher(namespace string) {
 	if s.prefetcher != nil {
-		s.prefetcher.close()
+		s.prefetcher.close(context.TODO())
 		s.prefetcher = nil
 	}
 	if s.snap != nil {
@@ -168,7 +168,7 @@ func (s *StateDB) StartPrefetcher(namespace string) {
 // from the gathered metrics.
 func (s *StateDB) StopPrefetcher() {
 	if s.prefetcher != nil {
-		s.prefetcher.close()
+		s.prefetcher.close(context.TODO())
 		s.prefetcher = nil
 	}
 }
@@ -934,7 +934,7 @@ func (s *StateDB) IntermediateRoot(ctx context.Context, deleteEmptyObjects bool)
 	prefetcher := s.prefetcher
 	if s.prefetcher != nil {
 		defer func() {
-			s.prefetcher.close()
+			s.prefetcher.close(ctx)
 			s.prefetcher = nil
 		}()
 	}
