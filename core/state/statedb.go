@@ -938,6 +938,7 @@ func (s *StateDB) IntermediateRoot(ctx context.Context, deleteEmptyObjects bool)
 			s.prefetcher = nil
 		}()
 	}
+	storageSpan, _ := opentracing.StartSpanFromContext(ctx, "flush-storage")
 	// Although naively it makes sense to retrieve the account trie and then do
 	// the contract storage and account updates sequentially, that short circuits
 	// the account prefetcher. Instead, let's process all the storage updates
@@ -948,6 +949,7 @@ func (s *StateDB) IntermediateRoot(ctx context.Context, deleteEmptyObjects bool)
 			obj.updateRoot(s.db)
 		}
 	}
+	storageSpan.Finish()
 	// Now we're about to start to write changes to the trie. The trie is so far
 	// _untouched_. We can check with the prefetcher, if it can give us a trie
 	// which has the same root, but also has some content loaded into it.
@@ -956,6 +958,8 @@ func (s *StateDB) IntermediateRoot(ctx context.Context, deleteEmptyObjects bool)
 			s.trie = trie
 		}
 	}
+	accountsSpan, _ := opentracing.StartSpanFromContext(ctx, "flush-accounts")
+
 	usedAddrs := make([][]byte, 0, len(s.stateObjectsPending))
 	for addr := range s.stateObjectsPending {
 		if obj := s.stateObjects[addr]; obj.deleted {
@@ -965,6 +969,7 @@ func (s *StateDB) IntermediateRoot(ctx context.Context, deleteEmptyObjects bool)
 		}
 		usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
 	}
+	accountsSpan.Finish()
 	if prefetcher != nil {
 		prefetcher.used(s.originalRoot, usedAddrs)
 	}
@@ -975,6 +980,9 @@ func (s *StateDB) IntermediateRoot(ctx context.Context, deleteEmptyObjects bool)
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.AccountHashes += time.Since(start) }(time.Now())
 	}
+	hashSpan, _ := opentracing.StartSpanFromContext(ctx, "hash")
+	defer hashSpan.Finish()
+
 	return s.trie.Hash()
 }
 
