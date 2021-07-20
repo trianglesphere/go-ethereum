@@ -1,0 +1,3 @@
+#!/bin/bash
+sudo -u postgres SPAN_STORAGE_TYPE=grpc-plugin ./bin/jaeger-all-in-one --grpc-storage-plugin.binary=./bin/jaeger-pg-store --grpc-storage-plugin.configuration-file=./config/jaeger-pg.yaml
+

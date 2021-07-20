@@ -1,0 +1,3 @@
+#!/bin/bash
+./bin/geth --syncmode=full --datadir=datadir
+
