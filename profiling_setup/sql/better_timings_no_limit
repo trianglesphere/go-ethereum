@@ -1,0 +1,22 @@
+WITH blocks(id, number) AS (
+	SELECT *
+	FROM block_number_mat_view
+),
+subspans AS (
+	SELECT *
+	FROM blocks, LATERAL (
+		SELECT * FROM parent_references_func(blocks.id)
+	) subpans_lat
+)
+
+SELECT spans.tags->>'lookup' as lookup, spans.tags->>'location' as addr_loc, spans.tags->>'storage-location' as state_location,
+SUM(duration), AVG(duration)/1000 as AVG, COUNT(duration), STDDEV(duration)
+FROM subspans
+JOIN spans ON spans.id = subspans.span_id
+WHERE spans.tags->>'lookup' = 'account'
+OR spans.tags->>'lookup' = 'code'
+OR spans.tags->>'lookup' = 'state'
+OR spans.operation_id = 19 -- apply_transaction
+GROUP BY 1, 2, 3
+ORDER BY 1, AVG DESC
+;

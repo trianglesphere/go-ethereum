@@ -1,0 +1,80 @@
+WITH blocks(id, number) AS (
+	SELECT *
+	FROM block_number_mat_view
+),
+
+insert_blocks AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM blocks
+	JOIN span_refs ON span_refs.child_span_id = blocks.id
+	JOIN spans ON spans.id = span_refs.child_span_id
+),
+process AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM blocks
+	JOIN span_refs ON span_refs.child_span_id = blocks.id
+	JOIN spans ON spans.id = span_refs.source_span_id
+	WHERE spans.operation_id = 38 -- process
+),
+validate_state AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM blocks
+	JOIN span_refs ON span_refs.child_span_id = blocks.id
+	JOIN spans ON spans.id = span_refs.source_span_id
+	WHERE spans.operation_id = 40 -- validate_state
+),
+write_block AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM blocks
+	JOIN span_refs ON span_refs.child_span_id = blocks.id
+	JOIN spans ON spans.id = span_refs.source_span_id
+	WHERE spans.operation_id = 41 -- write_block_with_state
+),
+finalize AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM process
+	JOIN span_refs ON span_refs.child_span_id = process.id
+	JOIN spans ON spans.id = span_refs.source_span_id
+	WHERE spans.operation_id = 10 -- finalize
+),
+intermediate_root AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM finalize
+	JOIN span_refs ON span_refs.child_span_id = finalize.id
+	JOIN spans ON spans.id = span_refs.source_span_id
+	WHERE spans.operation_id = 6 -- intermediate root
+),
+intermediate_root_ss AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM intermediate_root
+	JOIN span_refs ON span_refs.child_span_id = intermediate_root.id
+	JOIN spans ON spans.id = span_refs.source_span_id
+	WHERE spans.operation_id = 7 -- hash
+	OR spans.operation_id = 8 -- flush storage
+	OR spans.operation_id = 11 -- flush accounts
+),
+transactions AS (
+	SELECT spans.id, spans.operation_id, spans.duration, spans.tags
+	FROM process
+	JOIN span_refs ON span_refs.child_span_id = process.id
+	JOIN spans ON spans.id = span_refs.source_span_id
+	WHERE spans.operation_id = 19 -- apply_transaction
+),
+
+samples AS (
+	SELECT * FROM insert_blocks 
+	UNION SELECT * FROM process 
+	UNION SELECT * FROM transactions
+	UNION SELECT * FROM finalize 
+	UNION SELECT * FROM intermediate_root 
+	UNION SELECT * FROM intermediate_root_ss
+	UNION SELECT * FROM validate_state 
+	UNION SELECT * FROM write_block
+
+)
+-- select * from blocks;
+select operation_name, count(*),(SUM(duration)/1000000)::int as sum_ms, (avg(duration)/1000000)::int as avg_ms from samples
+JOIN operations on samples.operation_id = operations.id
+GROUP BY 1
+ORDER BY 3 DESC
+;

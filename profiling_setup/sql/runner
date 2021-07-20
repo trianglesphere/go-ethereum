@@ -1,0 +1,2 @@
+#!/bin/bash
+sudo -u postgres psql -P pager=off -A -F "," postgres2 -f $1

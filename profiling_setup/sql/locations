@@ -1,0 +1,24 @@
+SELECT spans.tags->>'lookup' as lookup, spans.tags->>'location' as addr_loc, spans.tags->>'storage-location' as state_location,
+SUM(duration), AVG(duration), COUNT(duration), STDDEV(duration)
+FROM spans
+WHERE spans.operation_id = 9	-- sdb-add-balance
+OR spans.operation_id = 12	-- sdb-getbalance
+OR spans.operation_id = 13	-- sdb-sub-balance
+OR spans.operation_id = 14	-- sdb-exist
+OR spans.operation_id = 17	-- sdb-set-nonce
+OR spans.operation_id = 21	-- sdb-nonce
+OR spans.operation_id = 32	-- sdb-create-account
+OR spans.operation_id = 24	-- sdb-getcodehash
+OR spans.operation_id = 35	-- sdb-empty
+OR spans.operation_id = 44	-- sdb-has-suicided
+OR spans.operation_id = 45	-- sdb-suicide
+OR spans.operation_id = 18	-- sdb-getcode
+OR spans.operation_id = 33	-- sdb-getcodesize
+OR spans.operation_id = 42	-- sdb-set-code
+OR spans.operation_id = 25	-- sdb-getstate
+OR spans.operation_id = 26	-- sdb-set-state
+OR spans.operation_id = 19 -- apply_transaction
+OR spans.operation_id = 19 -- apply_transaction
+GROUP BY 1, 2, 3
+ORDER BY 1, AVG DESC
+;

@@ -1,0 +1,9 @@
+SELECT  ims.duration,
+		ims.tags->>'totalLeft' as total_left,
+		ims.tags->>'totalProcessed' as total_proccessed
+FROM spans as finalizes
+JOIN span_refs ON finalizes.id = span_refs.child_span_id
+JOIN spans as ims ON ims.id = span_refs.source_span_id
+WHERE finalizes.operation_id = 10 -- finalize
+AND ims.operation_id = 6 -- intermediate root
+;

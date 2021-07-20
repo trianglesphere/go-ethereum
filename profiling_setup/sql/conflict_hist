@@ -1,0 +1,28 @@
+WITH blocks(id, number) AS (
+	SELECT *
+	FROM block_number_mat_view
+	ORDER BY 2 DESC
+	LIMIT 2000
+),
+subspans AS (
+	SELECT blocks.number, subspans_lat.*
+	FROM blocks, LATERAL (
+		SELECT tx_span_func(spans.id) as id, spans.tags->>'address' as addr, spans.tags->>'hash' as hash, count(*)
+		FROM parent_references_func(blocks.id)
+		JOIN spans ON spans.id = parent_references_func.span_id
+		WHERE spans.tags->>'lookup' = 'state'
+		GROUP BY 1, 2, 3
+	) subspans_lat
+),
+counts AS(
+	SELECT count(DISTINCT t1.id) as conflicting_txns
+	FROM subspans as t1
+	JOIN subspans as t2 ON t1.addr = t2.addr AND t1.hash = t2.hash
+	WHERE t1.id <> t2.id AND t1.number = t2.number
+	GROUP BY t1.number
+)
+	
+SELECT counts.conflicting_txns, count(*)
+FROM counts
+GROUP BY 1
+;
