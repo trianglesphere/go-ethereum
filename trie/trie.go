@@ -578,3 +578,22 @@ func (t *Trie) Reset() {
 	t.root = nil
 	t.unhashed = 0
 }
+
+// unique takes a sorted slice and returns a slice where every element is unique
+func unique(keys [][]byte) [][]byte {
+	if len(keys) == 0 {
+		return keys
+	}
+
+	result := 0
+	for i := 1; i < len(keys); i++ {
+		if !bytes.Equal(keys[result], keys[i]) {
+			result++
+			if result != i {
+				keys[result] = keys[i]
+			}
+		}
+	}
+
+	return keys[:result+1]
+}
