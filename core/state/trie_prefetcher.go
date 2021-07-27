@@ -27,6 +27,7 @@ import (
 var (
 	// triePrefetchMetricsPrefix is the prefix under which to publis the metrics.
 	triePrefetchMetricsPrefix = "trie/prefetch/"
+	batchGetEnabled           = true
 )
 
 // triePrefetcher is an active prefetcher, which receives accounts or storage
@@ -296,28 +297,43 @@ func (sf *subfetcher) loop() {
 			sf.tasks = nil
 			sf.lock.Unlock()
 
-			// Prefetch any tasks until the loop is interrupted
-			for i, task := range tasks {
-				select {
-				case <-sf.stop:
-					// If termination is requested, add any leftover back and return
-					sf.lock.Lock()
-					sf.tasks = append(sf.tasks, tasks[i:]...)
-					sf.lock.Unlock()
-					return
-
-				case ch := <-sf.copy:
-					// Somebody wants a copy of the current trie, grant them
-					ch <- sf.db.CopyTrie(sf.trie)
-
-				default:
-					// No termination request yet, prefetch the next entry
+			if batchGetEnabled {
+				// Stats
+				for _, task := range tasks {
 					taskid := string(task)
 					if _, ok := sf.seen[taskid]; ok {
 						sf.dups++
 					} else {
-						sf.trie.TryGet(task)
 						sf.seen[taskid] = struct{}{}
+					}
+
+				}
+				sf.trie.TryBatchGet(tasks)
+			} else {
+
+				// Prefetch any tasks until the loop is interrupted
+				for i, task := range tasks {
+					select {
+					case <-sf.stop:
+						// If termination is requested, add any leftover back and return
+						sf.lock.Lock()
+						sf.tasks = append(sf.tasks, tasks[i:]...)
+						sf.lock.Unlock()
+						return
+
+					case ch := <-sf.copy:
+						// Somebody wants a copy of the current trie, grant them
+						ch <- sf.db.CopyTrie(sf.trie)
+
+					default:
+						// No termination request yet, prefetch the next entry
+						taskid := string(task)
+						if _, ok := sf.seen[taskid]; ok {
+							sf.dups++
+						} else {
+							sf.trie.TryGet(task)
+							sf.seen[taskid] = struct{}{}
+						}
 					}
 				}
 			}
