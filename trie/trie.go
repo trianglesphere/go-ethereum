@@ -600,7 +600,36 @@ func unique(keys [][]byte) [][]byte {
 }
 
 func equalRange(keys [][]byte, pos int, path []byte) (first, last int) {
+	upperPath := make([]byte, len(path))
+	copy(upperPath, path)
+	upperPath[len(path)-1] += 1
 	first = sort.Search(len(keys), func(i int) bool { return bytes.Compare(keys[i][pos:], path) >= 0 })
-	last = sort.Search(len(keys), func(i int) bool { return bytes.Compare(keys[i][pos:], path) < 0 })
+	last = sort.Search(len(keys), func(i int) bool { return bytes.Compare(keys[i][pos:], upperPath) >= 0 })
 	return first, last
+}
+
+// slices the keyset into elements that match the subpath for
+func splitKeysetForFullNode(keys [][]byte, pos int) [][][]byte {
+	r := make([][][]byte, 17)
+	for i := range r {
+		first, last := equalRange(keys, pos, []byte{byte(i)})
+		r[i] = keys[first:last]
+	}
+	return r
+}
+
+// splitKeysetForShortNode slices the keyset into 3 portions:
+func splitKeysetForShortNode(keys [][]byte, pos int, path []byte) (pre, valid, post [][]byte) {
+	first, last := equalRange(keys, pos, path)
+	return keys[0:first], keys[first:last], keys[last:]
+}
+
+// allErrorsNil checks that all errors in a slice are nil
+func allErrorsNil(errs []error) bool {
+	for _, err := range errs {
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
