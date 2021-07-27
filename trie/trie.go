@@ -237,6 +237,121 @@ func (t *Trie) tryGetNode(origNode node, path []byte, pos int) (item []byte, new
 	}
 }
 
+// TryBatchGet returns the value for key stored in the trie.
+// The value bytes must not be modified by the caller.
+// If a node was not found in the database, a MissingNodeError is returned.
+func (t *Trie) TryBatchGet(keys [][]byte) ([][]byte, []error) {
+	keys2 := make([][]byte, len(keys))
+	for i, key := range keys {
+		keys2[i] = keybytesToHex(key)
+	}
+	sort.Slice(keys2, func(i, j int) bool { return bytes.Compare(keys2[i], keys2[j]) < 0 })
+	keys = unique(keys2)
+
+	values, newroot, didResolve, errs := t.tryBatchGet(t.root, keys, 0)
+	if allErrorsNil(errs) && didResolve {
+		t.root = newroot
+	}
+	return values, errs
+}
+
+func (t *Trie) tryBatchGet(origNode node, keys [][]byte, pos int) (values [][]byte, newnode node, didResolve bool, errs []error) {
+	switch n := (origNode).(type) {
+	case nil:
+		return nil, nil, false, nil
+	case valueNode:
+		return [][]byte{n}, n, false, nil
+	case *shortNode:
+		pre, descendKeys, post := splitKeysetForShortNode(keys, pos, n.Key)
+		// Record not found for keys out of range
+		for range pre {
+			values = append(values, nil)
+			errs = append(errs, nil)
+		}
+		// Double check keys. TODO: Remove this.
+		for _, key := range descendKeys {
+			if len(key)-pos < len(n.Key) || !bytes.Equal(n.Key, key[pos:pos+len(n.Key)]) {
+				// key not found in trie
+				panic(fmt.Sprintf("Trying to descend on an invalid key: %v (pos: %v), extension: %v", key, pos, n.Key))
+			}
+		}
+		// Descend on the valid keys
+		var descendValues [][]byte
+		var descendErrs []error
+		descendValues, newnode, didResolve, descendErrs = t.tryBatchGet(n.Val, descendKeys, pos+len(n.Key))
+		if allErrorsNil(descendErrs) && didResolve {
+			n = n.copy()
+			n.Val = newnode
+		}
+		values = append(values, descendValues...)
+		errs = append(errs, descendErrs...)
+		// Record not found for keys out of range
+		for range post {
+			values = append(values, nil)
+			errs = append(errs, nil)
+		}
+		return values, n, didResolve, errs
+	case *fullNode:
+		sections := splitKeysetForFullNode(keys, pos)
+		var newnodes [17]node
+		var childValues [17][][]byte
+		var childErrs [17][]error
+		var didResolves [17]bool
+		var wg sync.WaitGroup
+		for idx := range sections {
+			section := sections[idx]
+			i := idx
+			if len(section) == 0 {
+				continue
+			}
+			wg.Add(1)
+			go func() {
+				values, newnode, didResolve, errs := t.tryBatchGet(n.Children[i], section, pos+1)
+				newnodes[i] = newnode
+				childValues[i] = values
+				childErrs[i] = errs
+				didResolves[i] = didResolve
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+		// Flatten values
+		for _, v := range childValues {
+			if v != nil {
+				values = append(values, v...)
+			}
+		}
+		for _, v := range childErrs {
+			if v != nil {
+				errs = append(errs, v...)
+			}
+		}
+		for _, v := range didResolves {
+			didResolve = didResolve || v
+		}
+		if allErrorsNil(errs) && didResolve {
+			n = n.copy()
+			for i, newnode := range newnodes {
+				if newnode != nil {
+					n.Children[i] = newnode
+				}
+			}
+		}
+		return values, n, didResolve, errs
+	case hashNode:
+		// Use the 1st key for the prefix. Only used for error reporting
+		child, err := t.resolveHash(n, keys[0][:pos])
+		if err != nil {
+			// TODO: values + errs should be full slices
+			return nil, n, true, []error{err}
+		}
+		values, newnode, _, errs = t.tryBatchGet(child, keys, pos)
+		return values, newnode, true, errs
+	default:
+		panic(fmt.Sprintf("%T: invalid node: %v", origNode, origNode))
+	}
+}
+
 // Update associates key with value in the trie. Subsequent calls to
 // Get will return value. If value has length zero, any existing value
 // is deleted from the trie and calls to Get will return nil.

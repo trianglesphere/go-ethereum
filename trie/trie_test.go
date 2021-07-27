@@ -206,6 +206,29 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestBatchGet(t *testing.T) {
+	trie := newEmpty()
+	updateString(trie, "doe", "reindeer")
+	updateString(trie, "dog", "puppy")
+	updateString(trie, "dogglesworth", "cat")
+
+	for i := 0; i < 2; i++ {
+		res := getStrings(trie, []string{"dog", "doe"})
+		if !bytes.Equal(res[0], []byte("reindeer")) {
+			t.Errorf("expected reindeer got %x", res)
+		}
+		if !bytes.Equal(res[1], []byte("puppy")) {
+			t.Errorf("expected puppy got %x", res)
+		}
+
+		if i == 0 {
+			trie.Commit(nil)
+		}
+		return
+
+	}
+}
+
 func TestDelete(t *testing.T) {
 	trie := newEmpty()
 	vals := []struct{ k, v string }{
@@ -1063,6 +1086,15 @@ func tempDB() (string, *Database) {
 
 func getString(trie *Trie, k string) []byte {
 	return trie.Get([]byte(k))
+}
+
+func getStrings(trie *Trie, ks []string) [][]byte {
+	keys := make([][]byte, len(ks))
+	for i, key := range ks {
+		keys[i] = []byte(key)
+	}
+	values, _ := trie.TryBatchGet(keys)
+	return values
 }
 
 func updateString(trie *Trie, k, v string) {
