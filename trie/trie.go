@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -605,4 +606,10 @@ func unique(keys [][]byte) [][]byte {
 	}
 
 	return keys[:result+1]
+}
+
+func equalRange(keys [][]byte, pos int, path []byte) (first, last int) {
+	first = sort.Search(len(keys), func(i int) bool { return bytes.Compare(keys[i][pos:], path) >= 0 })
+	last = sort.Search(len(keys), func(i int) bool { return bytes.Compare(keys[i][pos:], path) < 0 })
+	return first, last
 }

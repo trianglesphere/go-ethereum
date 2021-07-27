@@ -1124,3 +1124,62 @@ func TestUnique(t *testing.T) {
 		}
 	}
 }
+
+func TestEqualRange(t *testing.T) {
+	table := []struct {
+		keys  [][]byte
+		path  []byte
+		pos   int
+		first int
+		last  int
+	}{
+		{
+			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 4}},
+			path:  []byte{0},
+			pos:   0,
+			first: 0,
+			last:  3,
+		},
+		{
+			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 4}},
+			path:  []byte{0, 1},
+			pos:   0,
+			first: 0,
+			last:  3,
+		},
+		{
+			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 4}},
+			path:  []byte{0, 1, 2},
+			pos:   0,
+			first: 0,
+			last:  1,
+		},
+		{
+			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 4}},
+			path:  []byte{0, 1, 3},
+			pos:   0,
+			first: 1,
+			last:  2,
+		},
+		{
+			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 3}, {0, 1, 4}},
+			path:  []byte{0, 1, 3},
+			pos:   0,
+			first: 1,
+			last:  3,
+		},
+		{
+			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 3}, {0, 1, 4}},
+			path:  []byte{1, 3},
+			pos:   1,
+			first: 1,
+			last:  3,
+		},
+	}
+	for i, test := range table {
+		first, last := equalRange(test.keys, test.pos, test.path)
+		if first != test.first && last != test.last {
+			t.Errorf("Expected [%v,%v) got [%v,%v) for test %v", test.first, test.last, first, last, i)
+		}
+	}
+}
