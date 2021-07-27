@@ -1169,17 +1169,41 @@ func TestEqualRange(t *testing.T) {
 			last:  3,
 		},
 		{
-			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 3}, {0, 1, 4}},
+			keys:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 3}, {0, 1, 10}},
+			path:  []byte{0, 1, 3},
+			pos:   0,
+			first: 1,
+			last:  3,
+		},
+		{
+			keys:  [][]byte{{0, 1, 2, 1}, {0, 1, 3, 0}, {0, 1, 3, 1}, {0, 1, 4, 0}},
 			path:  []byte{1, 3},
 			pos:   1,
 			first: 1,
 			last:  3,
 		},
+		{
+			keys:  [][]byte{{0, 1, 2, 1}, {0, 1, 3, 0}, {0, 1, 3, 1}, {0, 1, 5, 0}},
+			path:  []byte{1, 3},
+			pos:   1,
+			first: 1,
+			last:  3,
+		},
+		{
+			keys:  [][]byte{{6, 4, 6, 15, 6, 5, 16}, {6, 4, 6, 15, 6, 7, 16}},
+			path:  []byte{6, 4, 6, 15, 6},
+			pos:   0,
+			first: 0,
+			last:  2,
+		},
 	}
 	for i, test := range table {
 		first, last := equalRange(test.keys, test.pos, test.path)
-		if first != test.first && last != test.last {
-			t.Errorf("Expected [%v,%v) got [%v,%v) for test %v", test.first, test.last, first, last, i)
+		if first != test.first || last != test.last {
+			// t.Error(test.keys)
+			// t.Error(test.path)
+			// t.Error(test.pos)
+			t.Errorf("Expected [%v,%v) got [%v,%v) for test %v\n", test.first, test.last, first, last, i)
 		}
 	}
 }
