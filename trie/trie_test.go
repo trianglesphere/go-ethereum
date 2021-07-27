@@ -1085,3 +1085,42 @@ func TestDecodeNode(t *testing.T) {
 		decodeNode(hash, elems)
 	}
 }
+
+func TestUnique(t *testing.T) {
+	table := []struct {
+		in  [][]byte
+		out [][]byte
+	}{
+		{
+			in:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 4}},
+			out: [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 4}},
+		},
+		{
+			in:  [][]byte{{0, 1, 2}, {0, 1, 3}, {0, 1, 3}},
+			out: [][]byte{{0, 1, 2}, {0, 1, 3}},
+		},
+		{
+			in:  [][]byte{{0, 1, 2}, {0, 1, 2}, {0, 1, 2}},
+			out: [][]byte{{0, 1, 2}},
+		},
+		{
+			in:  [][]byte{{0, 1, 2}, {0, 1, 2}, {0, 1, 4}},
+			out: [][]byte{{0, 1, 2}, {0, 1, 4}},
+		},
+		{
+			in:  [][]byte{},
+			out: [][]byte{},
+		},
+	}
+	for i, test := range table {
+		res := unique(test.in)
+		if len(res) != len(test.out) {
+			t.Errorf("Failed test: %v. Expected: %v, Got: %v", i, test.out, res)
+		}
+		for i := range res {
+			if !bytes.Equal(res[i], test.out[i]) {
+				t.Errorf("Failed test: %v. Expected: %v, Got: %v", i, test.out, res)
+			}
+		}
+	}
+}
