@@ -102,6 +102,17 @@ func (t *SecureTrie) TryUpdateAccount(key []byte, acc *types.StateAccount) error
 	return nil
 }
 
+// TryBatchGet returns the values for keys stored in the trie.
+// The value bytes must not be modified by the caller.
+// If a node was not found in the database, a MissingNodeError is returned.
+func (t *SecureTrie) TryBatchGet(keys [][]byte) ([][]byte, []error) {
+	hashedKeys := make([][]byte, len(keys))
+	for i, key := range keys {
+		hashedKeys[i] = t.hashKey(key)
+	}
+	return t.trie.TryBatchGet(hashedKeys)
+}
+
 // Update associates key with value in the trie. Subsequent calls to
 // Get will return value. If value has length zero, any existing value
 // is deleted from the trie and calls to Get will return nil.
