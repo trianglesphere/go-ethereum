@@ -112,6 +112,10 @@ func (t *odrTrie) TryGet(key []byte) ([]byte, error) {
 	return res, err
 }
 
+func (t *odrTrie) TryBatchGet(keys [][]byte) ([][]byte, []error) {
+	panic("Not implemented")
+}
+
 func (t *odrTrie) TryUpdateAccount(key []byte, acc *types.StateAccount) error {
 	key = crypto.Keccak256(key)
 	value, err := rlp.EncodeToBytes(acc)

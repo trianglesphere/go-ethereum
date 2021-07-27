@@ -71,6 +71,11 @@ type Trie interface {
 	// trie.MissingNodeError is returned.
 	TryGet(key []byte) ([]byte, error)
 
+	// TryBatchGet returns the value for key stored in the trie.
+	// The value bytes must not be modified by the caller.
+	// If a node was not found in the database, a MissingNodeError is returned.
+	TryBatchGet(keys [][]byte) ([][]byte, []error)
+
 	// TryUpdateAccount abstract an account write in the trie.
 	TryUpdateAccount(key []byte, account *types.StateAccount) error
 
